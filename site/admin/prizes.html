@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Admin - Door Prizes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container py-4" style="max-width: 900px;">
+  <a href="/admin/" class="btn btn-link px-0">Back</a>
+  <h1 class="mb-3">Door Prizes</h1>
+
+  <div class="card card-body mb-3">
+    <label class="form-label">Prize Name</label>
+    <div class="d-flex gap-2">
+      <input id="prize" class="form-control" placeholder="e.g. $25 Gift Card">
+      <button id="draw" class="btn btn-danger">Draw Winner</button>
+    </div>
+  </div>
+
+  <div id="winner"></div>
+  <div class="mt-4">
+    <h3>Winners</h3>
+    <div id="list"></div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = "https://YOUR-WORKER-URL.workers.dev"; // change
+
+  async function refresh() {
+    const res = await fetch(`${API_BASE}/api/prizes/winners`);
+    const data = await res.json();
+    const wrap = document.getElementById("list");
+    if (!data.ok) {
+      wrap.innerHTML = `<div class="alert alert-danger">${data.error || "Error"}</div>`;
+      return;
+    }
+    const rows = data.rows || [];
+    if (!rows.length) {
+      wrap.innerHTML = `<div class="alert alert-secondary">No winners yet.</div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <div class="list-group">
+        ${rows.map(r => `
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between">
+              <div><strong>${r.prize_name}</strong></div>
+              <div class="text-muted">#${r.reg_number}</div>
+            </div>
+            <div class="text-muted">${r.name} • ${r.car_year} ${r.car_make} ${r.car_model} (${r.car_color})</div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  document.getElementById("draw").addEventListener("click", async () => {
+    const prize = document.getElementById("prize").value.trim();
+    const res = await fetch(`${API_BASE}/api/prizes/draw`, {
+      method: "POST",
+      headers: {"content-type": "application/json"},
+      body: JSON.stringify({ prize_name: prize })
+    });
+    const data = await res.json();
+    const w = document.getElementById("winner");
+
+    if (!data.ok) {
+      w.innerHTML = `<div class="alert alert-danger">${data.error || "Error"}</div>`;
+      return;
+    }
+
+    const r = data.winner;
+    w.innerHTML = `
+      <div class="alert alert-success">
+        Winner for <strong>${data.prize_name}</strong>: <strong>#${r.reg_number}</strong> — ${r.name}
+        <div class="text-muted">${r.car_year} ${r.car_make} ${r.car_model} (${r.car_color})</div>
+      </div>
+    `;
+    document.getElementById("prize").value = "";
+    refresh();
+  });
+
+  refresh();
+</script>
+</body>
+</html>

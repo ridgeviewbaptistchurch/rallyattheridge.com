@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Print</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<script>
+  const API_BASE = "https://YOUR-WORKER-URL.workers.dev"; // change
+  const params = new URLSearchParams(location.search);
+  const car = params.get("car");
+  location.href = `${API_BASE}/api/admin/print/${encodeURIComponent(car)}`;
+</script>
+</body>
+</html>

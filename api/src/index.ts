@@ -251,7 +251,7 @@ router.get("/api/admin/print/:reg", async (req: any, env: Env) => {
   // Customize this bottom section text to match your church info
   const churchName = "Ridgeview Baptist Church";
   const churchIntro = "Thanks for coming out today. We would love to have you join us.";
-  const churchTimes = "Service Times: Sunday School 10:00 AM | Worship 11:00 AM | Sunday Evening 6:00 PM | Wednesday 7:00 PM";
+  const churchTimes = "Service Times: Sunday Worship 8:30 AM | Sunday School 9:30 AM | Worship 10:30 AM | Wednesday 6:30 PM";
   const churchWeb = "ridgeviewbaptist.org";
   const churchAddr = "234 Hurd Road, Church Hill, TN 37642";
   const churchPhone = "423-357-4631";
