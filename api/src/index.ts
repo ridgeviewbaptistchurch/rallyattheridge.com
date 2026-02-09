@@ -6,6 +6,7 @@ type Env = {
 
 const SESSION_COOKIE = "carshow_sess";
 const SESSION_TTL_SECONDS = 60 * 60 * 12; // 12 hours
+const MAX_PBKDF2_ITERS = 100000;
 
 function parseCookies(req: Request): Record<string, string> {
   const h = req.headers.get("Cookie") || "";
@@ -76,6 +77,13 @@ function clearCookieHeader(): string {
 
 // Password hashing (PBKDF2)
 async function pbkdf2Hash(password: string, saltBytes: Uint8Array, iterations: number): Promise<Uint8Array> {
+  if (!Number.isFinite(iterations) || iterations <= 0) {
+    throw new Error("Invalid PBKDF2 iteration count");
+  }
+  if (iterations > MAX_PBKDF2_ITERS) {
+    throw new Error(`Unsupported PBKDF2 iteration count: ${iterations}`);
+  }
+
   const baseKey = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(password),
@@ -206,6 +214,14 @@ export default {
 
         const salt = unb64url(user.pw_salt);
         const iters = Number(user.pw_iters);
+
+        if (iters > MAX_PBKDF2_ITERS) {
+          return json(
+            { ok: false, error: `Admin password hash requires ${iters} PBKDF2 iterations, but this runtime supports up to ${MAX_PBKDF2_ITERS}. Recreate the admin user with a lower iteration count.` },
+            { status: 500, headers: corsHeaders }
+          );
+        }
+
         const computed = await pbkdf2Hash(password, salt, iters);
         const computedB64 = b64url(computed);
 
