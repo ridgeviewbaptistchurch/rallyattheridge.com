@@ -87,13 +87,7 @@
 
     el.innerHTML = `
       <div class="alert alert-success">
-        Registered. Your car number is <strong>#${data.reg_number}</strong>.
-      </div>
-      <div class="card card-body">
-        <div><strong>Car #:</strong> ${data.reg_number}</div>
-        <div class="mt-2">
-          <a class="btn btn-outline-secondary" href="/admin/print.html?car=${data.reg_number}" target="_blank">Print Registration Sheet</a>
-        </div>
+        You are registered for the show!. Your car number is <strong>#${data.reg_number}</strong>.
       </div>
     `;
     e.target.reset();
