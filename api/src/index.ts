@@ -284,6 +284,63 @@ export default {
         return json({ ok: true, userId: session?.userId ?? null }, { headers: corsHeaders });
       }
 
+      // POST /api/admin/register (register + auto check-in)
+      if (req.method === "POST" && pathname === "/api/admin/register") {
+        const body = (await req.json().catch(() => null)) as any;
+        if (!body) return bad("Invalid JSON");
+
+        const name = normalize(body.name);
+        const email = normalize(body.email);
+        const phone = normalize(body.phone);
+
+        const car_year = normalize(body.car_year);
+        const car_make = normalize(body.car_make);
+        const car_model = normalize(body.car_model);
+        const car_color = normalize(body.car_color);
+
+        const cls = requireClass(body.class);
+
+        if (!name) return bad("Name is required");
+        if (!car_year || !car_make || !car_model || !car_color) return bad("Car year/make/model/color are required");
+        if (!cls) return bad("Class is required");
+
+        const reg_number = await nextRegNumber(env.DB);
+        const id = crypto.randomUUID();
+        const created_at = isoNow();
+
+        await env.DB.prepare(
+          `INSERT INTO registrations
+           (id, reg_number, created_at, checked_in_at, name, email, phone, car_year, car_make, car_model, car_color, class)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+          .bind(
+            id,
+            reg_number,
+            created_at,
+            created_at,
+            name,
+            email || null,
+            phone || null,
+            car_year,
+            car_make,
+            car_model,
+            car_color,
+            cls
+          )
+          .run();
+
+        return json(
+          {
+            ok: true,
+            reg_number,
+            id,
+            checked_in_at: created_at,
+            print_url: `${env.PUBLIC_SITE_URL}/admin/print.html?car=${reg_number}`,
+          },
+          { headers: corsHeaders }
+        );
+      }
+
 
 
       // POST /api/register
