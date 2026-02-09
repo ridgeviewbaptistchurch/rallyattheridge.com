@@ -95,12 +95,16 @@
       <div class="list-group">
         ${rows.map(r => {
           const cls = r.class === "car_truck" ? "Car/Truck" : (r.class === "motorcycle" ? "Motorcycle" : "Other");
-          const checked = r.checked_in_at ? "Checked in" : "Not checked in";
+          const checked = !!r.checked_in_at;
+          const statusBadge = checked
+            ? `<span class="badge text-bg-success">Checked In</span>`
+            : `<span class="badge text-bg-secondary">Not Checked In</span>`;
+          const itemClass = checked ? "list-group-item-success" : "";
           return `
-            <a class="list-group-item list-group-item-action" href="detail.html?car=${r.reg_number}">
+            <a class="list-group-item list-group-item-action ${itemClass}" href="detail.html?car=${r.reg_number}">
               <div class="d-flex justify-content-between">
                 <div><strong>#${r.reg_number}</strong> ${r.name}</div>
-                <div class="text-muted">${checked}</div>
+                <div>${statusBadge}</div>
               </div>
               <div class="text-muted">${r.car_year} ${r.car_make} ${r.car_model} (${r.car_color}) • ${cls}</div>
             </a>

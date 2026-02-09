@@ -40,6 +40,17 @@
       return;
     }
     const r = data.registration;
+    const isCheckedIn = !!r.checked_in_at;
+    const statusBadge = isCheckedIn
+      ? `<span class="badge text-bg-success">Checked In</span>`
+      : `<span class="badge text-bg-secondary">Not Checked In</span>`;
+    const actions = isCheckedIn
+      ? `
+          <a class="btn btn-outline-secondary" href="/admin/print.html?car=${r.reg_number}" target="_blank">Print Sheet</a>
+        `
+      : `
+          <button id="checkin" class="btn btn-success">Check In</button>
+        `;
 
     wrap.innerHTML = `
       <div class="card card-body">
@@ -50,8 +61,8 @@
             <div class="text-muted">Color: ${r.car_color} • Class: ${clsLabel(r.class)}</div>
           </div>
           <div class="text-end">
-            <div class="text-muted">Checked in:</div>
-            <div>${r.checked_in_at ? "Yes" : "No"}</div>
+            <div class="text-muted">Status:</div>
+            <div>${statusBadge}</div>
           </div>
         </div>
 
@@ -61,25 +72,26 @@
         <div class="text-muted">${r.phone || ""} ${r.email ? ("• " + r.email) : ""}</div>
 
         <div class="mt-3 d-flex gap-2 flex-wrap">
-          <button id="checkin" class="btn btn-success">Check In</button>
-          <a class="btn btn-outline-secondary" href="/admin/print.html?car=${r.reg_number}" target="_blank">Print Sheet</a>
+          ${actions}
         </div>
       </div>
     `;
 
-    document.getElementById("checkin").addEventListener("click", async () => {
-      const r2 = await fetch(`${API_BASE}/api/admin/registration/${encodeURIComponent(car)}/checkin`, {
-        method: "POST",
-        credentials: "include"
+    if (!isCheckedIn) {
+      document.getElementById("checkin").addEventListener("click", async () => {
+        const r2 = await fetch(`${API_BASE}/api/admin/registration/${encodeURIComponent(car)}/checkin`, {
+          method: "POST",
+          credentials: "include"
+        });
+        if (r2.status === 401) {
+          location.href = "/admin/login.html";
+          return;
+        }
+        const d2 = await r2.json();
+        if (!d2.ok) alert(d2.error || "Error");
+        else load();
       });
-      if (r2.status === 401) {
-        location.href = "/admin/login.html";
-        return;
-      }
-      const d2 = await r2.json();
-      if (!d2.ok) alert(d2.error || "Error");
-      else load();
-    });
+    }
   }
 
   load();
