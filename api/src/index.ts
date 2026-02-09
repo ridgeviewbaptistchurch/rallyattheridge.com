@@ -91,11 +91,23 @@ async function pbkdf2Hash(password: string, saltBytes: Uint8Array, iterations: n
   return new Uint8Array(bits);
 }
 
-const corsHeaders: Record<string, string> = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-methods": "GET,POST,OPTIONS",
-  "access-control-allow-headers": "content-type",
-};
+function corsHeadersFor(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin");
+  const headers: Record<string, string> = {
+    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-headers": "content-type",
+    "vary": "Origin",
+  };
+
+  if (origin) {
+    headers["access-control-allow-origin"] = origin;
+    headers["access-control-allow-credentials"] = "true";
+  } else {
+    headers["access-control-allow-origin"] = "*";
+  }
+
+  return headers;
+}
 
 const json = (data: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(data), {
@@ -123,8 +135,6 @@ const text = (body: string, init: ResponseInit = {}) =>
       ...(init.headers || {}),
     },
   });
-
-const bad = (message: string, status = 400) => json({ ok: false, error: message }, { status });
 
 const isoNow = () => new Date().toISOString();
 
@@ -156,9 +166,12 @@ function match(pathname: string, pattern: RegExp): RegExpExecArray | null {
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
+    const corsHeaders = corsHeadersFor(req);
     try {
       const url = new URL(req.url);
       const { pathname } = url;
+      const bad = (message: string, status = 400) =>
+        json({ ok: false, error: message }, { status, headers: corsHeaders });
 
       // CORS preflight
       if (req.method === "OPTIONS" && pathname.startsWith("/api/")) {
@@ -223,12 +236,24 @@ export default {
         );
       }
 
-      const isAdminApi = pathname.startsWith("/api/admin/") && pathname !== "/api/admin/login";
-        if (isAdminApi) {
-          const cookies = parseCookies(req);
-          const sess = await verifySession(env, cookies[SESSION_COOKIE]);
-          if (!sess) return json({ ok: false, error: "Unauthorized" }, { status: 401, headers: corsHeaders });
-        }
+      const isProtectedApi =
+        (pathname.startsWith("/api/admin/") && pathname !== "/api/admin/login") ||
+        pathname === "/api/votes" ||
+        pathname === "/api/tally" ||
+        pathname === "/api/prizes/draw" ||
+        pathname === "/api/prizes/winners";
+
+      let session: { userId: string } | null = null;
+      if (isProtectedApi) {
+        const cookies = parseCookies(req);
+        session = await verifySession(env, cookies[SESSION_COOKIE]);
+        if (!session) return json({ ok: false, error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+      }
+
+      // GET /api/admin/session
+      if (req.method === "GET" && pathname === "/api/admin/session") {
+        return json({ ok: true, userId: session?.userId ?? null }, { headers: corsHeaders });
+      }
 
 
 

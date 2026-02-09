@@ -10,7 +10,15 @@
   const API_BASE = "https://api.rallyattheridge.org";
   const params = new URLSearchParams(location.search);
   const car = params.get("car");
-  location.href = `${API_BASE}/api/admin/print/${encodeURIComponent(car)}`;
+
+  fetch(`${API_BASE}/api/admin/session`, { credentials: "include" }).then((res) => {
+    if (res.status === 401) {
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      location.href = `/admin/login.html?next=${next}`;
+      return;
+    }
+    location.href = `${API_BASE}/api/admin/print/${encodeURIComponent(car)}`;
+  });
 </script>
 </body>
 </html>

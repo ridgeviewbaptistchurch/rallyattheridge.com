@@ -27,6 +27,12 @@
 <script>
   const API_BASE = "https://api.rallyattheridge.org"; // set this
   const msg = document.getElementById("msg");
+  const nextParam = new URLSearchParams(location.search).get("next") || "/admin/";
+  const next = nextParam.startsWith("/") ? nextParam : "/admin/";
+
+  fetch(`${API_BASE}/api/admin/session`, { credentials: "include" }).then((res) => {
+    if (res.ok) location.href = next;
+  });
 
   document.getElementById("f").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -48,7 +54,7 @@
       return;
     }
 
-    location.href = "/admin/";
+    location.href = next;
   });
 </script>
 </body>
