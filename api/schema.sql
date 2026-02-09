@@ -1,0 +1,40 @@
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS registrations (
+  id TEXT PRIMARY KEY,
+  reg_number INTEGER NOT NULL UNIQUE,
+  created_at TEXT NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  car_year TEXT NOT NULL,
+  car_make TEXT NOT NULL,
+  car_model TEXT NOT NULL,
+  car_color TEXT NOT NULL,
+  class TEXT NOT NULL CHECK (class IN ('car_truck','motorcycle','other')),
+  checked_in_at TEXT,
+  notes TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_reg_name ON registrations(name);
+CREATE INDEX IF NOT EXISTS idx_reg_checkedin ON registrations(checked_in_at);
+
+CREATE TABLE IF NOT EXISTS votes (
+  id TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  class TEXT NOT NULL CHECK (class IN ('car_truck','motorcycle','other')),
+  reg_number INTEGER NOT NULL,
+  ballot_id TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_votes_class ON votes(class);
+CREATE INDEX IF NOT EXISTS idx_votes_reg ON votes(reg_number);
+
+CREATE TABLE IF NOT EXISTS prize_winners (
+  id TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  prize_name TEXT NOT NULL,
+  reg_number INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_prize_reg ON prize_winners(reg_number);
