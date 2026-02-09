@@ -3,3 +3,4 @@
 /api/package-lock.json
 /site/.wrangler
 /site/node_modules
+/.wrangler

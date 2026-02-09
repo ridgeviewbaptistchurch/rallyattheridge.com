@@ -66,13 +66,26 @@ async function verifySession(env: Env, cookieVal: string | undefined): Promise<{
   return { userId };
 }
 
-function setCookieHeader(value: string): string {
-  // Secure must be on for HTTPS (Workers is HTTPS). SameSite=Lax is fine for this.
-  return `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`;
+function isLocalDevOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  try {
+    const { hostname } = new URL(origin);
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".localhost");
+  } catch {
+    return false;
+  }
 }
 
-function clearCookieHeader(): string {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+function setCookieHeader(req: Request, value: string): string {
+  // Local dev from localhost -> api.rallyattheridge.org is cross-site, so SameSite=None is required.
+  // Production on the same site can keep SameSite=Lax.
+  const sameSite = isLocalDevOrigin(req.headers.get("Origin")) ? "None" : "Lax";
+  return `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=${sameSite}; Max-Age=${SESSION_TTL_SECONDS}`;
+}
+
+function clearCookieHeader(req: Request): string {
+  const sameSite = isLocalDevOrigin(req.headers.get("Origin")) ? "None" : "Lax";
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=${sameSite}; Max-Age=0`;
 }
 
 // Password hashing (PBKDF2)
@@ -233,7 +246,7 @@ export default {
           {
             headers: {
               ...corsHeaders,
-              "set-cookie": setCookieHeader(sess),
+              "set-cookie": setCookieHeader(req, sess),
             },
           }
         );
@@ -246,7 +259,7 @@ export default {
           {
             headers: {
               ...corsHeaders,
-              "set-cookie": clearCookieHeader(),
+              "set-cookie": clearCookieHeader(req),
             },
           }
         );
