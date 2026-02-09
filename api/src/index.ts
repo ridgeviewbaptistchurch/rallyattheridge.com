@@ -356,6 +356,29 @@ export default {
         return json({ ok: true, results }, { headers: corsHeaders });
       }
 
+      // GET /api/admin/stats
+      if (req.method === "GET" && pathname === "/api/admin/stats") {
+        const row = await env.DB.prepare(
+          `SELECT
+             COUNT(*) AS total,
+             SUM(CASE WHEN checked_in_at IS NOT NULL THEN 1 ELSE 0 END) AS checked_in,
+             SUM(CASE WHEN checked_in_at IS NULL THEN 1 ELSE 0 END) AS not_checked_in
+           FROM registrations`
+        ).first<{ total: number; checked_in: number | null; not_checked_in: number | null }>();
+
+        return json(
+          {
+            ok: true,
+            stats: {
+              total: Number(row?.total ?? 0),
+              checked_in: Number(row?.checked_in ?? 0),
+              not_checked_in: Number(row?.not_checked_in ?? 0),
+            },
+          },
+          { headers: corsHeaders }
+        );
+      }
+
       // GET /api/admin/registration/:reg
       {
         const m = match(pathname, /^\/api\/admin\/registration\/(\d+)$/);

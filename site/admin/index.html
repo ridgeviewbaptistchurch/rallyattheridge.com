@@ -11,6 +11,8 @@
 <div class="container py-4" style="max-width: 980px;">
   <h1 class="mb-3">Admin</h1>
 
+  <div id="stats" class="row g-2 mb-3"></div>
+
   <div class="card card-body mb-3">
     <label class="form-label">Search (car #, name, phone, email, make/model)</label>
     <div class="d-flex gap-2">
@@ -24,6 +26,42 @@
 
 <script>
   const API_BASE = window.ADMIN_API_BASE || "https://api.rallyattheridge.org";
+
+  function statCard(label, value, tone = "primary") {
+    return `
+      <div class="col-12 col-md-4">
+        <div class="card border-${tone}">
+          <div class="card-body py-3">
+            <div class="text-muted small">${label}</div>
+            <div class="fs-3 fw-bold">${value}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadStats() {
+    const res = await fetch(`${API_BASE}/api/admin/stats`, { credentials: "include" });
+    if (res.status === 401) {
+      location.href = "/admin/login.html";
+      return;
+    }
+
+    const data = await res.json();
+    const wrap = document.getElementById("stats");
+
+    if (!data.ok) {
+      wrap.innerHTML = `<div class="col-12"><div class="alert alert-danger mb-0">${data.error || "Error loading stats"}</div></div>`;
+      return;
+    }
+
+    const s = data.stats || {};
+    wrap.innerHTML = [
+      statCard("Total Registrations", s.total ?? 0, "primary"),
+      statCard("Checked In", s.checked_in ?? 0, "success"),
+      statCard("Not Checked In", s.not_checked_in ?? 0, "secondary"),
+    ].join("");
+  }
 
   async function runSearch() {
     const q = document.getElementById("q").value.trim();
@@ -76,6 +114,8 @@
   document.getElementById("q").addEventListener("keydown", (e) => {
     if (e.key === "Enter") runSearch();
   });
+
+  loadStats();
 </script>
 </body>
 </html>
