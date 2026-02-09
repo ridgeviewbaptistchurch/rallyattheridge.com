@@ -9,4 +9,4 @@ PUBLIC_SITE_URL = "https://YOUR-PAGES-DOMAIN.pages.dev"
 [[d1_databases]]
 binding = "DB"
 database_name = "carshow_db"
-database_id = "aa1f40bfa79242320004df391bc3f835"
+database_id = "1461b7a8-c94c-4991-b4cf-b389198cdabd"
