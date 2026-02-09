@@ -4,7 +4,7 @@ compatibility_date = "2026-02-09"
 account_id = "aa1f40bfa79242320004df391bc3f835"
 
 [vars]
-PUBLIC_SITE_URL = "https://YOUR-PAGES-DOMAIN.pages.dev"
+PUBLIC_SITE_URL = "https://carshow-api.joshuahcarmack.workers.dev"
 
 [[d1_databases]]
 binding = "DB"
