@@ -495,10 +495,26 @@ export default {
       if (req.method === "GET" && pathname === "/api/tally") {
         const rows = (
           await env.DB.prepare(
-            `SELECT class, reg_number, COUNT(*) AS votes
-             FROM votes
-             GROUP BY class, reg_number
-             ORDER BY class, votes DESC, reg_number ASC`
+            `SELECT
+               v.class,
+               v.reg_number,
+               r.name,
+               r.car_year,
+               r.car_make,
+               r.car_model,
+               r.car_color,
+               COUNT(*) AS votes
+             FROM votes v
+             JOIN registrations r ON r.reg_number = v.reg_number
+             GROUP BY
+               v.class,
+               v.reg_number,
+               r.name,
+               r.car_year,
+               r.car_make,
+               r.car_model,
+               r.car_color
+             ORDER BY v.class, votes DESC, v.reg_number ASC`
           ).all()
         ).results;
 

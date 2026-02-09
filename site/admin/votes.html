@@ -91,7 +91,12 @@
             <table class="table table-sm align-middle mb-0">
               <thead>
                 <tr>
-                  <th>Car #</th>
+                  <th>ID #</th>
+                  <th>Name</th>
+                  <th>Year</th>
+                  <th>Make</th>
+                  <th>Model</th>
+                  <th>Color</th>
                   <th class="text-end">Votes</th>
                 </tr>
               </thead>
@@ -99,6 +104,11 @@
                 ${topRows.map((r) => `
                   <tr>
                     <td>${r.reg_number}</td>
+                    <td>${r.name || ""}</td>
+                    <td>${r.car_year || ""}</td>
+                    <td>${r.car_make || ""}</td>
+                    <td>${r.car_model || ""}</td>
+                    <td>${r.car_color || ""}</td>
                     <td class="text-end"><strong>${r.votes}</strong></td>
                   </tr>
                 `).join("")}
