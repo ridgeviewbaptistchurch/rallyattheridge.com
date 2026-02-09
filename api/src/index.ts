@@ -175,6 +175,63 @@ export default {
         return json({ ok: true }, { headers: corsHeaders });
       }
 
+      //Login
+      if (req.method === "POST" && pathname === "/api/admin/login") {
+        const body = (await req.json().catch(() => null)) as any;
+        if (!body) return bad("Invalid JSON");
+
+        const username = normalize(body.username).toLowerCase();
+        const password = String(body.password ?? "");
+
+        if (!username || !password) return bad("Username and password required");
+
+        const user = await env.DB.prepare(
+          `SELECT id, pw_hash, pw_salt, pw_iters FROM users WHERE username = ?`
+        ).bind(username).first<any>();
+
+        if (!user) return bad("Invalid login", 401);
+
+        const salt = unb64url(user.pw_salt);
+        const iters = Number(user.pw_iters);
+        const computed = await pbkdf2Hash(password, salt, iters);
+        const computedB64 = b64url(computed);
+
+        if (computedB64 !== user.pw_hash) return bad("Invalid login", 401);
+
+        const sess = await makeSessionCookie(env, user.id);
+        return json(
+          { ok: true },
+          {
+            headers: {
+              ...corsHeaders,
+              "set-cookie": setCookieHeader(sess),
+            },
+          }
+        );
+      }
+
+      // POST /api/admin/logout
+      if (req.method === "POST" && pathname === "/api/admin/logout") {
+        return json(
+          { ok: true },
+          {
+            headers: {
+              ...corsHeaders,
+              "set-cookie": clearCookieHeader(),
+            },
+          }
+        );
+      }
+
+      const isAdminApi = pathname.startsWith("/api/admin/") && pathname !== "/api/admin/login";
+        if (isAdminApi) {
+          const cookies = parseCookies(req);
+          const sess = await verifySession(env, cookies[SESSION_COOKIE]);
+          if (!sess) return json({ ok: false, error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+        }
+
+
+
       // POST /api/register
       if (req.method === "POST" && pathname === "/api/register") {
         const body = (await req.json().catch(() => null)) as any;
