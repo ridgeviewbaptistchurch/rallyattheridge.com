@@ -315,6 +315,13 @@ router.get("/api/admin/print/:reg", async (req: any, env: Env) => {
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
 });
 
+router.get("/", () =>
+  new Response(
+    "Car Show API is running. Try /api/health",
+    { headers: { "content-type": "text/plain; charset=utf-8" } }
+  )
+);
+
 router.all("*", () => bad("Not found", 404));
 
 export default {
