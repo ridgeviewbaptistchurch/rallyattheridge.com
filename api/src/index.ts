@@ -7,6 +7,18 @@ type Env = {
 
 const router = Router();
 
+router.options("/api/*", () => {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-headers": "content-type",
+    },
+  });
+});
+
+
 // Helpers
 const json = (data: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(data), {
@@ -39,23 +51,6 @@ function requireClass(c: unknown): "car_truck" | "motorcycle" | "other" | null {
 function normalizeName(s: unknown): string {
   return String(s ?? "").trim();
 }
-
-// CORS (optional; helps if Pages + Worker on different domains)
-router.all("/api/*", (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "access-control-allow-origin": "*",
-        "access-control-allow-methods": "GET,POST,OPTIONS",
-        "access-control-allow-headers": "content-type",
-      },
-    });
-  }
-  // Important: DO NOT return null here
-  return undefined;
-});
-
 
 // Health
 router.get("/api/health", () => json({ ok: true }));
