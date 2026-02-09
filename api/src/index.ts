@@ -1,7 +1,95 @@
 type Env = {
   DB: D1Database;
   PUBLIC_SITE_URL: string;
+  AUTH_SECRET: string;
 };
+
+const SESSION_COOKIE = "carshow_sess";
+const SESSION_TTL_SECONDS = 60 * 60 * 12; // 12 hours
+
+function parseCookies(req: Request): Record<string, string> {
+  const h = req.headers.get("Cookie") || "";
+  const out: Record<string, string> = {};
+  for (const part of h.split(";")) {
+    const [k, ...v] = part.trim().split("=");
+    if (!k) continue;
+    out[k] = decodeURIComponent(v.join("=") || "");
+  }
+  return out;
+}
+
+function b64url(bytes: Uint8Array): string {
+  const bin = String.fromCharCode(...bytes);
+  const b64 = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return b64;
+}
+
+function unb64url(s: string): Uint8Array {
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4);
+  const bin = atob(b64);
+  return new Uint8Array([...bin].map(c => c.charCodeAt(0)));
+}
+
+async function hmacSign(secret: string, data: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
+  return b64url(new Uint8Array(sig));
+}
+
+async function makeSessionCookie(env: Env, userId: string): Promise<string> {
+  const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
+  const payload = `${userId}.${exp}`;
+  const sig = await hmacSign(env.AUTH_SECRET, payload);
+  // value = userId.exp.sig
+  return `${userId}.${exp}.${sig}`;
+}
+
+async function verifySession(env: Env, cookieVal: string | undefined): Promise<{ userId: string } | null> {
+  if (!cookieVal) return null;
+  const parts = cookieVal.split(".");
+  if (parts.length !== 3) return null;
+  const [userId, expStr, sig] = parts;
+  const exp = Number(expStr);
+  if (!userId || !Number.isFinite(exp)) return null;
+  if (exp < Math.floor(Date.now() / 1000)) return null;
+
+  const payload = `${userId}.${exp}`;
+  const expected = await hmacSign(env.AUTH_SECRET, payload);
+  if (expected !== sig) return null;
+  return { userId };
+}
+
+function setCookieHeader(value: string): string {
+  // Secure must be on for HTTPS (Workers is HTTPS). SameSite=Lax is fine for this.
+  return `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`;
+}
+
+function clearCookieHeader(): string {
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+}
+
+// Password hashing (PBKDF2)
+async function pbkdf2Hash(password: string, saltBytes: Uint8Array, iterations: number): Promise<Uint8Array> {
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations },
+    baseKey,
+    256
+  );
+  return new Uint8Array(bits);
+}
 
 const corsHeaders: Record<string, string> = {
   "access-control-allow-origin": "*",
