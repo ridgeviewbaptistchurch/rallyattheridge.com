@@ -22,11 +22,31 @@
 </div>
 
 <script>
+  fetch("https://api.rallyattheridge.org/api/admin/search?q=_", {
+    credentials: "include"
+  }).then(res => {
+    if (res.status === 401) location.href = "/admin/login.html";
+  });
+</script>
+
+
+<script>
   const API_BASE = "https://api.rallyattheridge.org";
 
   async function runSearch() {
     const q = document.getElementById("q").value.trim();
-    const res = await fetch(`${API_BASE}/api/admin/search?q=${encodeURIComponent(q)}`, { credentials: "include" });
+    
+    const res = await fetch(
+      `${API_BASE}/api/admin/search?q=${encodeURIComponent(q)}`,
+      { credentials: "include" }
+    );
+
+    if (res.status === 401) {
+      location.href = "/admin/login.html";
+      return;
+    }
+
+    
     const data = await res.json();
     const wrap = document.getElementById("results");
 
