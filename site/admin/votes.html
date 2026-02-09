@@ -77,7 +77,7 @@
       const topRows = rows.slice(0, 10);
       if (!rows.length) {
         return `
-          <div class="col-12 col-lg-4">
+          <div class="mb-4">
             <h3 class="h6">${clsLabel(cls)}</h3>
             <div class="text-muted small">No votes yet.</div>
           </div>
@@ -85,7 +85,7 @@
       }
 
       return `
-        <div class="col-12 col-lg-4">
+        <div class="mb-4">
           <h3 class="h6">${clsLabel(cls)}</h3>
           <div class="table-responsive">
             <table class="table table-sm align-middle mb-0">
@@ -120,7 +120,7 @@
       `;
     });
 
-    tallyWrap.innerHTML = `<div class="row g-3">${sections.join("")}</div>`;
+    tallyWrap.innerHTML = sections.join("");
   }
 
   document.getElementById("submit").addEventListener("click", async () => {
