@@ -1,12 +1,12 @@
 name = "carshow-api"
 main = "src/index.ts"
 compatibility_date = "2026-02-09"
-account_id = "aa1f40bfa79242320004df391bc3f835"
+account_id = "efdb9bf05190f003e42285057bfeca6f"
 
 [vars]
-PUBLIC_SITE_URL = "https://carshow-api.joshuahcarmack.workers.dev"
+PUBLIC_SITE_URL = "https://carshow-api.ridgeview.workers.dev/"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "carshow_db"
-database_id = "1461b7a8-c94c-4991-b4cf-b389198cdabd"
+database_id = "971e959c-a7f6-45a4-bfd3-289fbbd10db7"
