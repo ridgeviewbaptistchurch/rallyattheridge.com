@@ -26,7 +26,7 @@
   }
 
   async function load() {
-    const res = await fetch(`${API_BASE}/api/admin/registration/${encodeURIComponent(car)}`);
+    const res = await fetch(`${API_BASE}/api/admin/registration/${encodeURIComponent(car)}`, { credentials: "include" });
     const data = await res.json();
     const wrap = document.getElementById("card");
 

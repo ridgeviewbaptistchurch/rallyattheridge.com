@@ -30,7 +30,7 @@
   const API_BASE = "https://api.rallyattheridge.org";
 
   async function refresh() {
-    const res = await fetch(`${API_BASE}/api/prizes/winners`);
+    const res = await fetch(`${API_BASE}/api/prizes/winners`, { credentials: "include" });
     const data = await res.json();
     const wrap = document.getElementById("list");
     if (!data.ok) {

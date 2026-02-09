@@ -43,8 +43,8 @@
     const res = await fetch(`${API_BASE}/api/votes`, {
       method: "POST",
       headers: {"content-type": "application/json"},
-      body: JSON.stringify(payload)
-    });
+      body: JSON.stringify(payload),
+    }, { credentials: "include" });
     const data = await res.json();
     if (!data.ok) {
       msg.innerHTML = `<div class="alert alert-danger">${data.error || "Error"}</div>`;
