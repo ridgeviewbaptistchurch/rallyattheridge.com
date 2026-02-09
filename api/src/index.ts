@@ -397,7 +397,24 @@ export default {
         const m = match(pathname, /^\/api\/admin\/registration\/(\d+)$/);
         if (req.method === "GET" && m) {
           const reg = toInt(m[1]);
-          const row = await env.DB.prepare(`SELECT * FROM registrations WHERE reg_number = ?`).bind(reg).first();
+          const row = await env.DB.prepare(
+            `SELECT
+               r.*,
+               (SELECT COUNT(*) FROM votes v WHERE v.reg_number = r.reg_number) AS vote_count,
+               (SELECT COUNT(*) FROM prize_winners pw WHERE pw.reg_number = r.reg_number) AS prize_win_count,
+               (SELECT pw.prize_name
+                FROM prize_winners pw
+                WHERE pw.reg_number = r.reg_number
+                ORDER BY pw.created_at DESC
+                LIMIT 1) AS latest_prize_name,
+               (SELECT pw.created_at
+                FROM prize_winners pw
+                WHERE pw.reg_number = r.reg_number
+                ORDER BY pw.created_at DESC
+                LIMIT 1) AS latest_prize_at
+             FROM registrations r
+             WHERE r.reg_number = ?`
+          ).bind(reg).first();
           if (!row) return bad("Not found", 404);
           return json({ ok: true, registration: row }, { headers: corsHeaders });
         }
