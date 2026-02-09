@@ -322,5 +322,8 @@ router.get("/", () =>
 router.all("*", () => bad("Not found", 404));
 
 export default {
-  fetch: (req: Request, env: Env, ctx: ExecutionContext) => router.handle(req, env, ctx),
+  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return await router.handle(req, env, ctx);
+  },
 };
+
