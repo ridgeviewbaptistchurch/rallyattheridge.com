@@ -425,32 +425,70 @@ export default {
         const body = (await req.json().catch(() => null)) as any;
         if (!body) return bad("Invalid JSON");
 
-        const cls = requireClass(body.class);
-        if (!cls) return bad("Class is required");
+        const inputRegs = Array.isArray(body.reg_numbers)
+          ? body.reg_numbers
+          : body.reg_number !== undefined
+            ? [body.reg_number]
+            : [];
 
-        const reg_number = toInt(body.reg_number);
-        if (!Number.isFinite(reg_number)) return bad("Invalid reg number");
+        const regNumbers = inputRegs
+          .map((v) => toInt(v))
+          .filter((n) => Number.isFinite(n) && n > 0);
 
-        const exists = await env.DB.prepare(
-          `SELECT reg_number FROM registrations WHERE reg_number = ? AND class = ?`
-        )
-          .bind(reg_number, cls)
-          .first();
+        if (!regNumbers.length) return bad("At least one valid reg number is required");
 
-        if (!exists) return bad("Registration not found for that class");
+        const uniqueRegs = [...new Set(regNumbers)];
+        const placeholders = uniqueRegs.map(() => "?").join(",");
 
-        const id = crypto.randomUUID();
+        const regRows = (
+          await env.DB.prepare(
+            `SELECT reg_number, class
+             FROM registrations
+             WHERE reg_number IN (${placeholders})`
+          )
+            .bind(...uniqueRegs)
+            .all<{ reg_number: number; class: "car_truck" | "motorcycle" | "other" }>()
+        ).results;
+
+        const regToClass = new Map<number, "car_truck" | "motorcycle" | "other">();
+        for (const row of regRows) regToClass.set(Number(row.reg_number), row.class);
+
         const created_at = isoNow();
         const ballot_id = String(body.ballot_id ?? "").trim() || null;
+        const invalid: number[] = [];
+        const byClass = { car_truck: 0, motorcycle: 0, other: 0 };
+        const inserts: D1PreparedStatement[] = [];
 
-        await env.DB.prepare(
-          `INSERT INTO votes (id, created_at, class, reg_number, ballot_id)
-           VALUES (?, ?, ?, ?, ?)`
-        )
-          .bind(id, created_at, cls, reg_number, ballot_id)
-          .run();
+        for (const reg_number of regNumbers) {
+          const cls = regToClass.get(reg_number);
+          if (!cls) {
+            invalid.push(reg_number);
+            continue;
+          }
+          byClass[cls] += 1;
+          inserts.push(
+            env.DB.prepare(
+              `INSERT INTO votes (id, created_at, class, reg_number, ballot_id)
+               VALUES (?, ?, ?, ?, ?)`
+            ).bind(crypto.randomUUID(), created_at, cls, reg_number, ballot_id)
+          );
+        }
 
-        return json({ ok: true }, { headers: corsHeaders });
+        if (!inserts.length) {
+          return bad("No valid registration numbers found");
+        }
+
+        await env.DB.batch(inserts);
+
+        return json(
+          {
+            ok: true,
+            inserted: inserts.length,
+            invalid_reg_numbers: [...new Set(invalid)],
+            by_class: byClass,
+          },
+          { headers: corsHeaders }
+        );
       }
 
       // GET /api/tally

@@ -20,37 +20,120 @@
 
   <div class="card card-body">
     <div class="mb-3">
-      <label class="form-label">Category</label>
-      <select id="cls" class="form-select">
-        <option value="car_truck">Car/Truck</option>
-        <option value="motorcycle">Motorcycle</option>
-        <option value="other">Other</option>
-      </select>
+      <label class="form-label">Car Numbers</label>
+      <textarea id="regs" class="form-control form-control-lg" rows="3" placeholder="10 12 2 81"></textarea>
+      <div class="form-text">Separate numbers with spaces, commas, or periods.</div>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Car Number</label>
-      <input id="reg" class="form-control form-control-lg" inputmode="numeric" placeholder="123">
-    </div>
-    <button id="submit" class="btn btn-primary btn-lg">Submit Vote</button>
+    <button id="submit" class="btn btn-primary btn-lg">Submit Votes</button>
   </div>
 
   <div id="msg" class="mt-3"></div>
+
+  <div class="card card-body mt-4">
+    <h2 class="h5 mb-3">Current Tally (Top 10 per Category)</h2>
+    <div id="tally"></div>
+  </div>
 </div>
 
 <script>
   const API_BASE = window.ADMIN_API_BASE || "https://api.rallyattheridge.org";
   const msg = document.getElementById("msg");
+  const tallyWrap = document.getElementById("tally");
+
+  function clsLabel(c) {
+    if (c === "car_truck") return "Car/Truck";
+    if (c === "motorcycle") return "Motorcycle";
+    return "Other";
+  }
+
+  function parseRegNumbers(raw) {
+    return raw
+      .split(/[,\s.]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  async function loadTally() {
+    const res = await fetch(`${API_BASE}/api/tally`, { credentials: "include" });
+    if (res.status === 401) {
+      location.href = "/admin/login.html";
+      return;
+    }
+
+    const data = await res.json();
+    if (!data.ok) {
+      tallyWrap.innerHTML = `<div class="alert alert-danger mb-0">${data.error || "Error loading tally"}</div>`;
+      return;
+    }
+
+    const groups = { car_truck: [], motorcycle: [], other: [] };
+    for (const row of data.rows || []) {
+      if (!groups[row.class]) continue;
+      groups[row.class].push(row);
+    }
+
+    const sections = ["car_truck", "motorcycle", "other"].map((cls) => {
+      const rows = groups[cls];
+      const topRows = rows.slice(0, 10);
+      if (!rows.length) {
+        return `
+          <div class="col-12 col-lg-4">
+            <h3 class="h6">${clsLabel(cls)}</h3>
+            <div class="text-muted small">No votes yet.</div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="col-12 col-lg-4">
+          <h3 class="h6">${clsLabel(cls)}</h3>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Car #</th>
+                  <th class="text-end">Votes</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${topRows.map((r) => `
+                  <tr>
+                    <td>${r.reg_number}</td>
+                    <td class="text-end"><strong>${r.votes}</strong></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+          ${rows.length > 10 ? `<div class="text-muted small mt-2">Showing top 10 of ${rows.length}</div>` : ""}
+        </div>
+      `;
+    });
+
+    tallyWrap.innerHTML = `<div class="row g-3">${sections.join("")}</div>`;
+  }
 
   document.getElementById("submit").addEventListener("click", async () => {
-    const payload = {
-      class: document.getElementById("cls").value,
-      reg_number: document.getElementById("reg").value.trim()
-    };
+    msg.innerHTML = "";
+    const raw = document.getElementById("regs").value;
+    const pieces = parseRegNumbers(raw);
+    if (!pieces.length) {
+      msg.innerHTML = `<div class="alert alert-danger">Enter at least one car number.</div>`;
+      return;
+    }
+
+    const badTokens = pieces.filter((p) => !/^\d+$/.test(p));
+    if (badTokens.length) {
+      msg.innerHTML = `<div class="alert alert-danger">Invalid numbers: ${badTokens.slice(0, 8).join(", ")}</div>`;
+      return;
+    }
+
+    const regNumbers = pieces.map((p) => Number(p));
 
     const res = await fetch(`${API_BASE}/api/votes`, {
       method: "POST",
       headers: {"content-type": "application/json"},
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ reg_numbers: regNumbers }),
       credentials: "include"
     });
     if (res.status === 401) {
@@ -62,10 +145,24 @@
       msg.innerHTML = `<div class="alert alert-danger">${data.error || "Error"}</div>`;
       return;
     }
-    msg.innerHTML = `<div class="alert alert-success">Vote recorded.</div>`;
-    document.getElementById("reg").value = "";
-    document.getElementById("reg").focus();
+
+    const invalid = data.invalid_reg_numbers || [];
+    if (invalid.length) {
+      msg.innerHTML = `
+        <div class="alert alert-warning">
+          Saved ${data.inserted} vote(s). These car numbers were not found: ${invalid.join(", ")}
+        </div>
+      `;
+    } else {
+      msg.innerHTML = `<div class="alert alert-success">Saved ${data.inserted} vote(s).</div>`;
+    }
+
+    document.getElementById("regs").value = "";
+    document.getElementById("regs").focus();
+    loadTally();
   });
+
+  loadTally();
 </script>
 </body>
 </html>
