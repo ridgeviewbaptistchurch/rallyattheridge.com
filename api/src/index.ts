@@ -41,7 +41,7 @@ function normalizeName(s: unknown): string {
 }
 
 // CORS (optional; helps if Pages + Worker on different domains)
-router.all("/api/*", async (req: Request) => {
+router.all("/api/*", (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -52,8 +52,10 @@ router.all("/api/*", async (req: Request) => {
       },
     });
   }
-  return null;
+  // Important: DO NOT return null here
+  return undefined;
 });
+
 
 // Health
 router.get("/api/health", () => json({ ok: true }));
