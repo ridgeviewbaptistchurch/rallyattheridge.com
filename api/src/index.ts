@@ -1,7 +1,11 @@
+import { Toucan } from "toucan-js";
+
 type Env = {
   DB: D1Database;
   PUBLIC_SITE_URL: string;
   AUTH_SECRET: string;
+  SENTRY_DSN?: string;
+  SENTRY_ENVIRONMENT?: string;
 };
 
 const SESSION_COOKIE = "carshow_sess";
@@ -269,8 +273,17 @@ async function gcRateLimits(db: D1Database): Promise<void> {
 }
 
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const corsHeaders = corsHeadersFor(req);
+    const sentry = env.SENTRY_DSN
+      ? new Toucan({
+          dsn: env.SENTRY_DSN,
+          context: ctx,
+          request: req,
+          environment: env.SENTRY_ENVIRONMENT || "production",
+        })
+      : null;
+
     try {
       const url = new URL(req.url);
       const { pathname } = url;
@@ -901,6 +914,10 @@ export default {
 
       return json({ ok: false, error: "Not found" }, { status: 404, headers: corsHeaders });
     } catch (err: any) {
+      if (sentry) {
+        sentry.captureException(err);
+      }
+
       // Always respond (prevents hang)
       return json(
         { ok: false, error: "Unhandled error", detail: String(err?.stack || err) },
