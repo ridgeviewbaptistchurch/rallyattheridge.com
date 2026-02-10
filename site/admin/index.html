@@ -35,6 +35,17 @@
 
 <script>
   const API_BASE = window.ADMIN_API_BASE || "https://api.rallyattheridge.org";
+  const escapeHtml = (v) =>
+    String(v ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  const asNumber = (v, fallback = 0) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
 
   function statCard(label, value, tone = "primary") {
     return `
@@ -60,15 +71,15 @@
     const wrap = document.getElementById("stats");
 
     if (!data.ok) {
-      wrap.innerHTML = `<div class="col-12"><div class="alert alert-danger mb-0">${data.error || "Error loading stats"}</div></div>`;
+      wrap.innerHTML = `<div class="col-12"><div class="alert alert-danger mb-0">${escapeHtml(data.error || "Error loading stats")}</div></div>`;
       return;
     }
 
     const s = data.stats || {};
     wrap.innerHTML = [
-      statCard("Total Registrations", s.total ?? 0, "primary"),
-      statCard("Checked In", s.checked_in ?? 0, "success"),
-      statCard("Not Checked In", s.not_checked_in ?? 0, "secondary"),
+      statCard("Total Registrations", asNumber(s.total), "primary"),
+      statCard("Checked In", asNumber(s.checked_in), "success"),
+      statCard("Not Checked In", asNumber(s.not_checked_in), "secondary"),
     ].join("");
   }
 
@@ -90,7 +101,7 @@
     const wrap = document.getElementById("results");
 
     if (!data.ok) {
-      wrap.innerHTML = `<div class="alert alert-danger">${data.error || "Error"}</div>`;
+      wrap.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.error || "Error")}</div>`;
       return;
     }
 
@@ -110,12 +121,12 @@
             : `<span class="badge text-bg-secondary">Not Checked In</span>`;
           const itemClass = checked ? "list-group-item-success" : "";
           return `
-            <a class="list-group-item list-group-item-action ${itemClass}" href="detail.html?car=${r.reg_number}">
+            <a class="list-group-item list-group-item-action ${itemClass}" href="detail.html?car=${asNumber(r.reg_number)}">
               <div class="d-flex justify-content-between">
-                <div><strong>#${r.reg_number}</strong> ${r.name}</div>
+                <div><strong>#${asNumber(r.reg_number)}</strong> ${escapeHtml(r.name)}</div>
                 <div>${statusBadge}</div>
               </div>
-              <div class="text-muted">${r.car_year} ${r.car_make} ${r.car_model} (${r.car_color}) • ${cls}</div>
+              <div class="text-muted">${escapeHtml(r.car_year)} ${escapeHtml(r.car_make)} ${escapeHtml(r.car_model)} (${escapeHtml(r.car_color)}) • ${cls}</div>
             </a>
           `;
         }).join("")}

@@ -25,6 +25,17 @@
 
 <script>
   const API_BASE = window.ADMIN_API_BASE || "https://api.rallyattheridge.org";
+  const escapeHtml = (v) =>
+    String(v ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  const asNumber = (v, fallback = 0) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
   const params = new URLSearchParams(location.search);
   const car = params.get("car");
 
@@ -44,13 +55,13 @@
     const wrap = document.getElementById("card");
 
     if (!data.ok) {
-      wrap.innerHTML = `<div class="alert alert-danger">${data.error || "Error"}</div>`;
+      wrap.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.error || "Error")}</div>`;
       return;
     }
     const r = data.registration;
     const isCheckedIn = !!r.checked_in_at;
-    const voteCount = Number(r.vote_count || 0);
-    const prizeWinCount = Number(r.prize_win_count || 0);
+    const voteCount = asNumber(r.vote_count);
+    const prizeWinCount = asNumber(r.prize_win_count);
     const wasPulledForPrize = prizeWinCount > 0;
     const attendedBefore = (r.attended_before || "").toLowerCase();
     const isFirstTime = attendedBefore === "no";
@@ -62,7 +73,7 @@
       ? `<span class="badge text-bg-warning">Yes</span>`
       : `<span class="badge text-bg-secondary">No</span>`;
     const prizeDetail = wasPulledForPrize
-      ? `<div class="text-muted small mt-1">Latest prize: ${r.latest_prize_name || "Prize"}${r.latest_prize_at ? ` (${new Date(r.latest_prize_at).toLocaleString()})` : ""}</div>`
+      ? `<div class="text-muted small mt-1">Latest prize: ${escapeHtml(r.latest_prize_name || "Prize")}${r.latest_prize_at ? ` (${escapeHtml(new Date(r.latest_prize_at).toLocaleString())})` : ""}</div>`
       : "";
     const firstTimeFlag = isFirstTime
       ? `
@@ -73,7 +84,7 @@
       : "";
     const actions = isCheckedIn
       ? `
-          <a class="btn btn-outline-secondary" href="/admin/print.html?car=${r.reg_number}" target="_blank">Print Sheet</a>
+          <a class="btn btn-outline-secondary" href="/admin/print.html?car=${asNumber(r.reg_number)}" target="_blank">Print Sheet</a>
         `
       : `
           <button id="checkin" class="btn btn-success">Check In</button>
@@ -83,9 +94,9 @@
       <div class="card card-body">
         <div class="d-flex justify-content-between align-items-start">
           <div>
-            <div class="display-6 mb-0"><strong>#${r.reg_number}</strong></div>
-            <div class="fs-4">${r.car_year} ${r.car_make} ${r.car_model}</div>
-            <div class="text-muted">Color: ${r.car_color} • Class: ${clsLabel(r.class)}</div>
+            <div class="display-6 mb-0"><strong>#${asNumber(r.reg_number)}</strong></div>
+            <div class="fs-4">${escapeHtml(r.car_year)} ${escapeHtml(r.car_make)} ${escapeHtml(r.car_model)}</div>
+            <div class="text-muted">Color: ${escapeHtml(r.car_color)} • Class: ${clsLabel(r.class)}</div>
           </div>
           <div class="text-end">
             <div class="text-muted">Status:</div>
@@ -95,12 +106,12 @@
 
         <hr/>
 
-        <div><strong>Registrant:</strong> ${r.name}</div>
-        <div class="text-muted">${r.phone || ""} ${r.email ? ("• " + r.email) : ""}</div>
-        <div class="mt-2"><strong>Address:</strong> ${r.address || "-"}</div>
+        <div><strong>Registrant:</strong> ${escapeHtml(r.name)}</div>
+        <div class="text-muted">${escapeHtml(r.phone || "")} ${r.email ? ("• " + escapeHtml(r.email)) : ""}</div>
+        <div class="mt-2"><strong>Address:</strong> ${escapeHtml(r.address || "-")}</div>
         <div class="mt-2"><strong>Attended Before:</strong> ${attendedBefore === "yes" ? "Yes" : attendedBefore === "no" ? "No" : "-"}</div>
-        <div class="mt-2"><strong>T-Shirt Size:</strong> ${(r.tshirt_size || "").toUpperCase() || "-"}</div>
-        <div class="mt-2"><strong>Home Church:</strong> ${hasHomeChurch ? (r.home_church_name || "Yes") : "No"}</div>
+        <div class="mt-2"><strong>T-Shirt Size:</strong> ${escapeHtml((r.tshirt_size || "").toUpperCase() || "-")}</div>
+        <div class="mt-2"><strong>Home Church:</strong> ${hasHomeChurch ? escapeHtml(r.home_church_name || "Yes") : "No"}</div>
 
         ${firstTimeFlag}
 
@@ -127,7 +138,7 @@
           return;
         }
         const d2 = await r2.json();
-        if (!d2.ok) alert(d2.error || "Error");
+        if (!d2.ok) alert(String(d2.error || "Error"));
         else load();
       });
     }

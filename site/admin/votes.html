@@ -39,6 +39,17 @@
 
 <script>
   const API_BASE = window.ADMIN_API_BASE || "https://api.rallyattheridge.org";
+  const escapeHtml = (v) =>
+    String(v ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  const asNumber = (v, fallback = 0) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
   const msg = document.getElementById("msg");
   const tallyWrap = document.getElementById("tally");
 
@@ -64,7 +75,7 @@
 
     const data = await res.json();
     if (!data.ok) {
-      tallyWrap.innerHTML = `<div class="alert alert-danger mb-0">${data.error || "Error loading tally"}</div>`;
+      tallyWrap.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(data.error || "Error loading tally")}</div>`;
       return;
     }
 
@@ -105,13 +116,13 @@
               <tbody>
                 ${topRows.map((r) => `
                   <tr>
-                    <td>${r.reg_number}</td>
-                    <td>${r.name || ""}</td>
-                    <td>${r.car_year || ""}</td>
-                    <td>${r.car_make || ""}</td>
-                    <td>${r.car_model || ""}</td>
-                    <td>${r.car_color || ""}</td>
-                    <td class="text-end"><strong>${r.votes}</strong></td>
+                    <td>${asNumber(r.reg_number)}</td>
+                    <td>${escapeHtml(r.name || "")}</td>
+                    <td>${escapeHtml(r.car_year || "")}</td>
+                    <td>${escapeHtml(r.car_make || "")}</td>
+                    <td>${escapeHtml(r.car_model || "")}</td>
+                    <td>${escapeHtml(r.car_color || "")}</td>
+                    <td class="text-end"><strong>${asNumber(r.votes)}</strong></td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -136,7 +147,7 @@
 
     const badTokens = pieces.filter((p) => !/^\d+$/.test(p));
     if (badTokens.length) {
-      msg.innerHTML = `<div class="alert alert-danger">Invalid numbers: ${badTokens.slice(0, 8).join(", ")}</div>`;
+      msg.innerHTML = `<div class="alert alert-danger">Invalid numbers: ${escapeHtml(badTokens.slice(0, 8).join(", "))}</div>`;
       return;
     }
 
@@ -154,19 +165,20 @@
     }
     const data = await res.json();
     if (!data.ok) {
-      msg.innerHTML = `<div class="alert alert-danger">${data.error || "Error"}</div>`;
+      msg.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.error || "Error")}</div>`;
       return;
     }
 
     const invalid = data.invalid_reg_numbers || [];
     if (invalid.length) {
+      const safeInvalid = invalid.map((n) => asNumber(n)).join(", ");
       msg.innerHTML = `
         <div class="alert alert-warning">
-          Saved ${data.inserted} vote(s). These car numbers were not found: ${invalid.join(", ")}
+          Saved ${asNumber(data.inserted)} vote(s). These car numbers were not found: ${safeInvalid}
         </div>
       `;
     } else {
-      msg.innerHTML = `<div class="alert alert-success">Saved ${data.inserted} vote(s).</div>`;
+      msg.innerHTML = `<div class="alert alert-success">Saved ${asNumber(data.inserted)} vote(s).</div>`;
     }
 
     document.getElementById("regs").value = "";
