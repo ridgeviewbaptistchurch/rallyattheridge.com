@@ -7,6 +7,9 @@ type Env = {
 const SESSION_COOKIE = "carshow_sess";
 const SESSION_TTL_SECONDS = 60 * 60 * 12; // 12 hours
 const MAX_PBKDF2_ITERS = 100000;
+const LOGIN_LIMIT = { max: 10, windowSeconds: 10 * 60 };
+const PUBLIC_REGISTER_LIMIT = { max: 20, windowSeconds: 60 * 60 };
+let rateLimitTableReady = false;
 
 function parseCookies(req: Request): Record<string, string> {
   const h = req.headers.get("Cookie") || "";
@@ -195,6 +198,76 @@ function match(pathname: string, pattern: RegExp): RegExpExecArray | null {
   return pattern.exec(pathname);
 }
 
+function clientIpFor(req: Request): string {
+  const cfIp = req.headers.get("cf-connecting-ip");
+  if (cfIp) return cfIp.trim();
+
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+
+  return "0.0.0.0";
+}
+
+async function consumeRateLimit(
+  db: D1Database,
+  key: string,
+  maxHits: number,
+  windowSeconds: number
+): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  if (!rateLimitTableReady) {
+    await db.prepare(
+      `CREATE TABLE IF NOT EXISTS rate_limits (
+         k TEXT NOT NULL,
+         window_start INTEGER NOT NULL,
+         hit_count INTEGER NOT NULL,
+         expires_at INTEGER NOT NULL,
+         PRIMARY KEY (k, window_start)
+       )`
+    ).run();
+    await db.prepare(
+      `CREATE INDEX IF NOT EXISTS idx_rate_limits_expires ON rate_limits(expires_at)`
+    ).run();
+    rateLimitTableReady = true;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const windowStart = now - (now % windowSeconds);
+  const expiresAt = windowStart + windowSeconds + 60;
+
+  await db
+    .prepare(
+      `INSERT INTO rate_limits (k, window_start, hit_count, expires_at)
+       VALUES (?, ?, 1, ?)
+       ON CONFLICT(k, window_start) DO UPDATE SET
+         hit_count = hit_count + 1,
+         expires_at = excluded.expires_at`
+    )
+    .bind(key, windowStart, expiresAt)
+    .run();
+
+  const row = await db
+    .prepare(
+      `SELECT hit_count
+       FROM rate_limits
+       WHERE k = ? AND window_start = ?`
+    )
+    .bind(key, windowStart)
+    .first<{ hit_count: number }>();
+
+  const hitCount = Number(row?.hit_count ?? 0);
+  if (hitCount <= maxHits) {
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  const retryAfterSeconds = Math.max(1, windowStart + windowSeconds - now);
+  return { allowed: false, retryAfterSeconds };
+}
+
+async function gcRateLimits(db: D1Database): Promise<void> {
+  const now = Math.floor(Date.now() / 1000);
+  await db.prepare(`DELETE FROM rate_limits WHERE expires_at < ?`).bind(now).run();
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const corsHeaders = corsHeadersFor(req);
@@ -203,6 +276,10 @@ export default {
       const { pathname } = url;
       const bad = (message: string, status = 400) =>
         json({ ok: false, error: message }, { status, headers: corsHeaders });
+
+      if (rateLimitTableReady && pathname.startsWith("/api/") && Math.random() < 0.01) {
+        await gcRateLimits(env.DB);
+      }
 
       // CORS preflight
       if (req.method === "OPTIONS" && pathname.startsWith("/api/")) {
@@ -221,6 +298,21 @@ export default {
 
       //Login
       if (req.method === "POST" && pathname === "/api/admin/login") {
+        const ip = clientIpFor(req);
+        const rl = await consumeRateLimit(env.DB, `login:${ip}`, LOGIN_LIMIT.max, LOGIN_LIMIT.windowSeconds);
+        if (!rl.allowed) {
+          return json(
+            { ok: false, error: "Too many login attempts. Please try again later." },
+            {
+              status: 429,
+              headers: {
+                ...corsHeaders,
+                "retry-after": String(rl.retryAfterSeconds),
+              },
+            }
+          );
+        }
+
         const body = (await req.json().catch(() => null)) as any;
         if (!body) return bad("Invalid JSON");
 
@@ -370,6 +462,26 @@ export default {
 
       // POST /api/register
       if (req.method === "POST" && pathname === "/api/register") {
+        const ip = clientIpFor(req);
+        const rl = await consumeRateLimit(
+          env.DB,
+          `public-register:${ip}`,
+          PUBLIC_REGISTER_LIMIT.max,
+          PUBLIC_REGISTER_LIMIT.windowSeconds
+        );
+        if (!rl.allowed) {
+          return json(
+            { ok: false, error: "Too many registration attempts. Please try again later." },
+            {
+              status: 429,
+              headers: {
+                ...corsHeaders,
+                "retry-after": String(rl.retryAfterSeconds),
+              },
+            }
+          );
+        }
+
         const body = (await req.json().catch(() => null)) as any;
         if (!body) return bad("Invalid JSON");
 
@@ -546,8 +658,8 @@ export default {
             : [];
 
         const regNumbers = inputRegs
-          .map((v) => toInt(v))
-          .filter((n) => Number.isFinite(n) && n > 0);
+          .map((v: unknown) => toInt(v))
+          .filter((n: number) => Number.isFinite(n) && n > 0);
 
         if (!regNumbers.length) return bad("At least one valid reg number is required");
 

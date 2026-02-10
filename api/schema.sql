@@ -43,3 +43,13 @@ CREATE TABLE IF NOT EXISTS prize_winners (
 );
 
 CREATE INDEX IF NOT EXISTS idx_prize_reg ON prize_winners(reg_number);
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+  k TEXT NOT NULL,
+  window_start INTEGER NOT NULL,
+  hit_count INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  PRIMARY KEY (k, window_start)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_limits_expires ON rate_limits(expires_at);
