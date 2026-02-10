@@ -741,7 +741,7 @@ export default {
     <div class="num">${escapeHtml(topTitle)}</div>
     <div class="car">${escapeHtml(carLine)}</div>
     <div class="meta">${escapeHtml(colorLine)} | ${escapeHtml(classLine)}</div>
-    <div class="admin">Registrant: ${escapeHtml(String(r.name))}${r.phone ? " | " + escapeHtml(String(r.phone)) : ""}</div>
+    <div class="admin">Registrant: ${escapeHtml(String(r.name))}</div>
   </div>
 
   <div class="fold"></div>
