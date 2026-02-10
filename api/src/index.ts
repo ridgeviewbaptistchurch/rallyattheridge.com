@@ -176,6 +176,16 @@ function normalize(s: unknown): string {
   return String(s ?? "").trim();
 }
 
+function requireYesNo(v: unknown): "yes" | "no" | null {
+  if (v === "yes" || v === "no") return v;
+  return null;
+}
+
+function requireTshirtSize(v: unknown): "small" | "medium" | "large" | "xl" | "2xl" | "3xl" | null {
+  if (v === "small" || v === "medium" || v === "large" || v === "xl" || v === "2xl" || v === "3xl") return v;
+  return null;
+}
+
 async function nextRegNumber(db: D1Database): Promise<number> {
   const r = await db.prepare("SELECT COALESCE(MAX(reg_number), 0) AS m FROM registrations").first<{ m: number }>();
   return (r?.m ?? 0) + 1;
@@ -292,6 +302,7 @@ export default {
         const name = normalize(body.name);
         const email = normalize(body.email);
         const phone = normalize(body.phone);
+        const address = normalize(body.address);
 
         const car_year = normalize(body.car_year);
         const car_make = normalize(body.car_make);
@@ -299,10 +310,19 @@ export default {
         const car_color = normalize(body.car_color);
 
         const cls = requireClass(body.class);
+        const attended_before = requireYesNo(body.attended_before);
+        const tshirt_size = requireTshirtSize(body.tshirt_size);
+        const has_home_church = requireYesNo(body.has_home_church);
+        const home_church_name = normalize(body.home_church_name);
 
         if (!name) return bad("Name is required");
+        if (!address) return bad("Address is required");
         if (!car_year || !car_make || !car_model || !car_color) return bad("Car year/make/model/color are required");
         if (!cls) return bad("Class is required");
+        if (!attended_before) return bad("Please select if you have attended before");
+        if (!tshirt_size) return bad("Please select a t-shirt size");
+        if (!has_home_church) return bad("Please select if you have a home church");
+        if (has_home_church === "yes" && !home_church_name) return bad("Home church name is required when selected");
 
         const reg_number = await nextRegNumber(env.DB);
         const id = crypto.randomUUID();
@@ -310,8 +330,8 @@ export default {
 
         await env.DB.prepare(
           `INSERT INTO registrations
-           (id, reg_number, created_at, checked_in_at, name, email, phone, car_year, car_make, car_model, car_color, class)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           (id, reg_number, created_at, checked_in_at, name, email, phone, address, car_year, car_make, car_model, car_color, class, attended_before, tshirt_size, has_home_church, home_church_name)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
           .bind(
             id,
@@ -321,11 +341,16 @@ export default {
             name,
             email || null,
             phone || null,
+            address,
             car_year,
             car_make,
             car_model,
             car_color,
-            cls
+            cls,
+            attended_before,
+            tshirt_size,
+            has_home_church,
+            home_church_name || null
           )
           .run();
 
@@ -351,6 +376,7 @@ export default {
         const name = normalize(body.name);
         const email = normalize(body.email);
         const phone = normalize(body.phone);
+        const address = normalize(body.address);
 
         const car_year = normalize(body.car_year);
         const car_make = normalize(body.car_make);
@@ -358,10 +384,19 @@ export default {
         const car_color = normalize(body.car_color);
 
         const cls = requireClass(body.class);
+        const attended_before = requireYesNo(body.attended_before);
+        const tshirt_size = requireTshirtSize(body.tshirt_size);
+        const has_home_church = requireYesNo(body.has_home_church);
+        const home_church_name = normalize(body.home_church_name);
 
         if (!name) return bad("Name is required");
+        if (!address) return bad("Address is required");
         if (!car_year || !car_make || !car_model || !car_color) return bad("Car year/make/model/color are required");
         if (!cls) return bad("Class is required");
+        if (!attended_before) return bad("Please select if you have attended before");
+        if (!tshirt_size) return bad("Please select a t-shirt size");
+        if (!has_home_church) return bad("Please select if you have a home church");
+        if (has_home_church === "yes" && !home_church_name) return bad("Home church name is required when selected");
 
         const reg_number = await nextRegNumber(env.DB);
         const id = crypto.randomUUID();
@@ -369,8 +404,8 @@ export default {
 
         await env.DB.prepare(
           `INSERT INTO registrations
-           (id, reg_number, created_at, name, email, phone, car_year, car_make, car_model, car_color, class)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           (id, reg_number, created_at, name, email, phone, address, car_year, car_make, car_model, car_color, class, attended_before, tshirt_size, has_home_church, home_church_name)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
           .bind(
             id,
@@ -379,11 +414,16 @@ export default {
             name,
             email || null,
             phone || null,
+            address,
             car_year,
             car_make,
             car_model,
             car_color,
-            cls
+            cls,
+            attended_before,
+            tshirt_size,
+            has_home_church,
+            home_church_name || null
           )
           .run();
 

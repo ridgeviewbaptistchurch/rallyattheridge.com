@@ -7,11 +7,16 @@ CREATE TABLE IF NOT EXISTS registrations (
   name TEXT NOT NULL,
   email TEXT,
   phone TEXT,
+  address TEXT,
   car_year TEXT NOT NULL,
   car_make TEXT NOT NULL,
   car_model TEXT NOT NULL,
   car_color TEXT NOT NULL,
   class TEXT NOT NULL CHECK (class IN ('car_truck','motorcycle','other')),
+  attended_before TEXT CHECK (attended_before IN ('yes','no')),
+  tshirt_size TEXT CHECK (tshirt_size IN ('small','medium','large','xl','2xl','3xl')),
+  has_home_church TEXT CHECK (has_home_church IN ('yes','no')),
+  home_church_name TEXT,
   checked_in_at TEXT,
   notes TEXT
 );

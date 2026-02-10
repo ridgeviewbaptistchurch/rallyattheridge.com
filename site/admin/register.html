@@ -38,6 +38,30 @@
         <label class="form-label">Email</label>
         <input class="form-control" name="email" type="email">
       </div>
+      <div class="col-md-6">
+        <label class="form-label">Address</label>
+        <input class="form-control" name="address" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Attended Before?</label>
+        <select class="form-select" name="attended_before" required>
+          <option value="">Select one</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">T-Shirt Size</label>
+        <select class="form-select" name="tshirt_size" required>
+          <option value="">Select size</option>
+          <option value="small">Small</option>
+          <option value="medium">Medium</option>
+          <option value="large">Large</option>
+          <option value="xl">XL</option>
+          <option value="2xl">2XL</option>
+          <option value="3xl">3XL</option>
+        </select>
+      </div>
 
       <div class="col-md-3">
         <label class="form-label">Car Year</label>
@@ -64,6 +88,18 @@
           <option value="other">Other</option>
         </select>
       </div>
+      <div class="col-md-6">
+        <label class="form-label">Do You Have a Home Church?</label>
+        <select id="has_home_church" class="form-select" name="has_home_church" required>
+          <option value="">Select one</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">If Yes, Where?</label>
+        <input id="home_church_name" class="form-control" name="home_church_name" placeholder="Church name">
+      </div>
 
       <div class="col-12">
         <button class="btn btn-primary" type="submit">Register + Check In</button>
@@ -78,6 +114,17 @@
   const API_BASE = window.ADMIN_API_BASE || "https://api.rallyattheridge.org";
   const form = document.getElementById("f");
   const msg = document.getElementById("msg");
+  const hasHomeChurchEl = document.getElementById("has_home_church");
+  const homeChurchNameEl = document.getElementById("home_church_name");
+
+  function syncHomeChurchRequired() {
+    const yes = hasHomeChurchEl.value === "yes";
+    homeChurchNameEl.required = yes;
+    if (!yes) homeChurchNameEl.value = "";
+  }
+
+  hasHomeChurchEl.addEventListener("change", syncHomeChurchRequired);
+  syncHomeChurchRequired();
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
