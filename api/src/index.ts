@@ -702,6 +702,8 @@ export default {
           const churchWeb = "ridgeviewbaptist.org";
           const churchAddr = "234 Hurd Road, Church Hill, TN 37642";
           const churchPhone = "423-357-4631";
+          const siteBase = String(env.PUBLIC_SITE_URL || "").replace(/\/+$/, "");
+          const backUrl = `${siteBase}/admin/detail.html?car=${encodeURIComponent(String(r.reg_number))}`;
 
           const page = `<!doctype html>
 <html>
@@ -709,26 +711,31 @@ export default {
   <meta charset="utf-8" />
   <title>Registration ${escapeHtml(String(r.reg_number))}</title>
   <style>
-    @page { size: letter; margin: 0.5in; }
+    @page { size: letter; margin: 0.35in; }
     body { font-family: Arial, Helvetica, sans-serif; }
-    .fold { border-top: 2px dashed #999; margin: 0.35in 0; }
-    .top { height: 5.0in; display:flex; flex-direction:column; justify-content:center; align-items:center; }
-    .num { font-size: 110px; font-weight: 800; line-height: 1; letter-spacing: -2px; }
-    .car { font-size: 40px; font-weight: 700; margin-top: 10px; text-align:center; }
-    .meta { font-size: 22px; margin-top: 10px; text-align:center; }
-    .bottom { height: 5.0in; display:flex; flex-direction:column; justify-content:center; }
+    .actions { display:flex; gap:8px; margin-bottom: 8px; }
+    .btn { border: 1px solid #111; border-radius: 8px; padding: 6px 10px; background: #f5f5f5; cursor: pointer; text-decoration: none; color: #111; font-size: 13px; }
+    .fold { border-top: 2px dashed #999; margin: 0.2in 0; }
+    .top { height: 4.55in; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+    .num { font-size: 94px; font-weight: 800; line-height: 1; letter-spacing: -2px; }
+    .car { font-size: 34px; font-weight: 700; margin-top: 8px; text-align:center; }
+    .meta { font-size: 18px; margin-top: 8px; text-align:center; }
+    .bottom { height: 4.55in; display:flex; flex-direction:column; justify-content:center; }
     .box { border: 2px solid #111; padding: 14px; border-radius: 10px; }
-    .churchName { font-size: 28px; font-weight: 800; margin-bottom: 10px; }
-    .churchText { font-size: 16px; margin: 6px 0; }
+    .churchName { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+    .churchText { font-size: 14px; margin: 5px 0; }
     .small { font-size: 14px; color: #333; }
     .row { display:flex; gap:18px; flex-wrap:wrap; margin-top:10px; }
     .pill { border: 1px solid #111; border-radius: 999px; padding: 6px 12px; font-size: 14px; }
     .admin { margin-top: 14px; font-size: 12px; color: #666; }
-    @media print { button { display:none; } }
+    @media print { .actions { display:none; } }
   </style>
 </head>
 <body>
-  <button onclick="window.print()">Print</button>
+  <div class="actions">
+    <a class="btn" href="${escapeHtml(backUrl)}">Close</a>
+    <button class="btn" onclick="window.print()">Print</button>
+  </div>
 
   <div class="top box">
     <div class="num">${escapeHtml(topTitle)}</div>
