@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rally at the Ridge</title>
+  <meta name="description" content="Rally at the Ridge car show registration and event details.">
+  <style>
+    :root {
+      --bg-overlay: rgba(8, 12, 20, 0.62);
+      --card-bg: rgba(14, 20, 33, 0.8);
+      --text: #f7f8fb;
+      --muted: #d6deea;
+      --accent: #ffb100;
+      --accent-hover: #ffc142;
+      --maxw: 900px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      height: 100%;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background: #0e1320;
+    }
+
+    body {
+      min-height: 100vh;
+      background-image:
+        linear-gradient(var(--bg-overlay), var(--bg-overlay)),
+        url("RATR2024-DroneShot.jpg");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .panel {
+      width: min(100%, var(--maxw));
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      padding: clamp(20px, 4vw, 40px);
+      backdrop-filter: blur(4px);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+    }
+
+    .kicker {
+      margin: 0 0 8px;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .logo-wrap {
+      margin: 0 0 18px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px dashed rgba(255, 255, 255, 0.35);
+      border-radius: 12px;
+      min-height: 180px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .logo-wrap img {
+      width: min(100%, 560px);
+      max-height: 220px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .logo-fallback {
+      color: var(--muted);
+      font-size: 0.95rem;
+      padding: 14px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 5vw, 3.1rem);
+      line-height: 1.1;
+    }
+
+    .when {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.15rem);
+      font-weight: 600;
+    }
+
+    .event-datetime {
+      margin: 8px 0 0;
+      color: var(--text);
+      font-size: clamp(1.2rem, 3vw, 1.9rem);
+      font-weight: 800;
+      line-height: 1.25;
+    }
+
+    .copy {
+      margin: 22px 0 0;
+      line-height: 1.65;
+      color: var(--text);
+      max-width: 70ch;
+    }
+
+    .actions {
+      margin-top: 28px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-block;
+      border: 0;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 700;
+      padding: 12px 22px;
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #1d1300;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.18);
+      transform: translateY(-1px);
+    }
+
+    .footer {
+      margin-top: 18px;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 640px) {
+      body { background-attachment: scroll; }
+      .actions { flex-direction: column; }
+      .btn { text-align: center; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="panel">
+    <div class="logo-wrap">
+      <img src="logo.png" alt="Rally at the Ridge logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+      <div class="logo-fallback" style="display:none;">Place logo at <code>site/logo.png</code></div>
+    </div>
+
+    <p class="kicker">Ridgeview Baptist Church</p>
+    <h1>Rally at the Ridge</h1>
+    <p class="when">Annual Community Car Show</p>
+    <p class="event-datetime">April 26, 2025 | 9:00 AM - 1:00 PM</p>
+
+    <p class="copy">
+      Join us for a day of classic cars, trucks, motorcycles, food, and fellowship. The event is free and open to the community,
+      with door prizes and class awards throughout the day.
+    </p>
+
+    <div class="actions">
+      <a class="btn btn-primary" href="/register/">Register Your Vehicle</a>
+      <a class="btn btn-secondary" href="https://ridgeviewbaptist.org" target="_blank" rel="noopener noreferrer">Church Website</a>
+    </div>
+
+    <p class="footer">234 Hurd Road, Church Hill, TN 37642 | (423) 357-4631</p>
+  </main>
+</body>
+</html>
