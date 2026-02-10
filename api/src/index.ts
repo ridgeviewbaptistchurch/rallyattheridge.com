@@ -563,9 +563,9 @@ export default {
               `SELECT reg_number, name, car_year, car_make, car_model, car_color, class, checked_in_at
                FROM registrations
                WHERE reg_number = ? OR name LIKE ? OR email LIKE ? OR phone LIKE ?
-               ORDER BY reg_number DESC
+               ORDER BY CASE WHEN reg_number = ? THEN 0 ELSE 1 END, reg_number DESC
                LIMIT 50`
-            ).bind(maybeNum, qLike, qLike, qLike)
+            ).bind(maybeNum, qLike, qLike, qLike, maybeNum)
           : env.DB.prepare(
               `SELECT reg_number, name, car_year, car_make, car_model, car_color, class, checked_in_at
                FROM registrations
