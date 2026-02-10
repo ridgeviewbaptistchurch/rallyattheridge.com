@@ -704,6 +704,7 @@ export default {
           const churchPhone = "423-357-4631";
           const siteBase = String(env.PUBLIC_SITE_URL || "").replace(/\/+$/, "");
           const backUrl = `${siteBase}/admin/detail.html?car=${encodeURIComponent(String(r.reg_number))}`;
+          const backUrlJs = JSON.stringify(backUrl);
 
           const page = `<!doctype html>
 <html>
@@ -756,6 +757,26 @@ export default {
     </div>
     <div class="churchText small" style="margin-top:12px;">${escapeHtml(churchAddr)}</div>
   </div>
+  <script>
+    (function () {
+      const backUrl = ${backUrlJs};
+      let triggered = false;
+
+      function autoPrint() {
+        if (triggered) return;
+        triggered = true;
+        window.print();
+      }
+
+      window.addEventListener("load", function () {
+        setTimeout(autoPrint, 150);
+      });
+
+      window.addEventListener("afterprint", function () {
+        window.location.href = backUrl;
+      });
+    })();
+  </script>
 </body>
 </html>`;
 
