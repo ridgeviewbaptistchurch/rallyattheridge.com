@@ -29,16 +29,23 @@
 
     body {
       min-height: 100vh;
+      position: relative;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
       background-image:
         linear-gradient(var(--bg-overlay), var(--bg-overlay)),
         url("RATR2024-DroneShot.jpg");
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
-      background-attachment: fixed;
-      display: grid;
-      place-items: center;
-      padding: 24px;
     }
 
     .panel {
@@ -158,7 +165,6 @@
     }
 
     @media (max-width: 640px) {
-      body { background-attachment: scroll; }
       .actions { flex-direction: column; }
       .btn { text-align: center; width: 100%; }
     }
