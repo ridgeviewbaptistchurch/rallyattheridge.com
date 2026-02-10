@@ -13,6 +13,19 @@ const SESSION_TTL_SECONDS = 60 * 60 * 12; // 12 hours
 const MAX_PBKDF2_ITERS = 100000;
 const LOGIN_LIMIT = { max: 10, windowSeconds: 10 * 60 };
 const PUBLIC_REGISTER_LIMIT = { max: 20, windowSeconds: 60 * 60 };
+const PROD_ALLOWED_ORIGIN = "https://rallyattheridge.org";
+const REG_INSERT_MAX_RETRIES = 5;
+const FIELD_MAX = {
+  name: 120,
+  email: 254,
+  phone: 40,
+  address: 200,
+  carYear: 16,
+  carMake: 80,
+  carModel: 80,
+  carColor: 60,
+  homeChurchName: 120,
+} as const;
 let rateLimitTableReady = false;
 
 function parseCookies(req: Request): Record<string, string> {
@@ -83,6 +96,12 @@ function isLocalDevOrigin(origin: string | null): boolean {
   }
 }
 
+function isAllowedCorsOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  if (origin === PROD_ALLOWED_ORIGIN) return true;
+  return isLocalDevOrigin(origin);
+}
+
 function setCookieHeader(req: Request, value: string): string {
   // Local dev from localhost -> api.rallyattheridge.org is cross-site, so SameSite=None is required.
   // Production on the same site can keep SameSite=Lax.
@@ -127,11 +146,9 @@ function corsHeadersFor(req: Request): Record<string, string> {
     "vary": "Origin",
   };
 
-  if (origin) {
+  if (origin && isAllowedCorsOrigin(origin)) {
     headers["access-control-allow-origin"] = origin;
     headers["access-control-allow-credentials"] = "true";
-  } else {
-    headers["access-control-allow-origin"] = "*";
   }
 
   return headers;
@@ -183,6 +200,10 @@ function normalize(s: unknown): string {
   return String(s ?? "").trim();
 }
 
+function tooLong(s: string, max: number): boolean {
+  return s.length > max;
+}
+
 function requireYesNo(v: unknown): "yes" | "no" | null {
   if (v === "yes" || v === "no") return v;
   return null;
@@ -196,6 +217,100 @@ function requireTshirtSize(v: unknown): "small" | "medium" | "large" | "xl" | "2
 async function nextRegNumber(db: D1Database): Promise<number> {
   const r = await db.prepare("SELECT COALESCE(MAX(reg_number), 0) AS m FROM registrations").first<{ m: number }>();
   return (r?.m ?? 0) + 1;
+}
+
+function isRegNumberConflict(err: unknown): boolean {
+  const msg = String((err as any)?.message || err || "");
+  return msg.includes("UNIQUE constraint failed") && msg.includes("registrations.reg_number");
+}
+
+type RegistrationInput = {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  car_year: string;
+  car_make: string;
+  car_model: string;
+  car_color: string;
+  cls: "car_truck" | "motorcycle" | "other";
+  attended_before: "yes" | "no";
+  tshirt_size: "small" | "medium" | "large" | "xl" | "2xl" | "3xl";
+  has_home_church: "yes" | "no";
+  home_church_name: string;
+};
+
+async function createRegistrationWithRetry(
+  db: D1Database,
+  input: RegistrationInput,
+  autoCheckIn: boolean
+): Promise<{ id: string; reg_number: number; created_at: string }> {
+  for (let attempt = 1; attempt <= REG_INSERT_MAX_RETRIES; attempt++) {
+    const reg_number = await nextRegNumber(db);
+    const id = crypto.randomUUID();
+    const created_at = isoNow();
+
+    try {
+      if (autoCheckIn) {
+        await db.prepare(
+          `INSERT INTO registrations
+           (id, reg_number, created_at, checked_in_at, name, email, phone, address, car_year, car_make, car_model, car_color, class, attended_before, tshirt_size, has_home_church, home_church_name)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+          .bind(
+            id,
+            reg_number,
+            created_at,
+            created_at,
+            input.name,
+            input.email || null,
+            input.phone || null,
+            input.address,
+            input.car_year,
+            input.car_make,
+            input.car_model,
+            input.car_color,
+            input.cls,
+            input.attended_before,
+            input.tshirt_size,
+            input.has_home_church,
+            input.home_church_name || null
+          )
+          .run();
+      } else {
+        await db.prepare(
+          `INSERT INTO registrations
+           (id, reg_number, created_at, name, email, phone, address, car_year, car_make, car_model, car_color, class, attended_before, tshirt_size, has_home_church, home_church_name)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+          .bind(
+            id,
+            reg_number,
+            created_at,
+            input.name,
+            input.email || null,
+            input.phone || null,
+            input.address,
+            input.car_year,
+            input.car_make,
+            input.car_model,
+            input.car_color,
+            input.cls,
+            input.attended_before,
+            input.tshirt_size,
+            input.has_home_church,
+            input.home_church_name || null
+          )
+          .run();
+      }
+
+      return { id, reg_number, created_at };
+    } catch (err) {
+      if (!isRegNumberConflict(err) || attempt === REG_INSERT_MAX_RETRIES) throw err;
+    }
+  }
+
+  throw new Error("Could not allocate registration number");
 }
 
 function match(pathname: string, pattern: RegExp): RegExpExecArray | null {
@@ -289,6 +404,11 @@ export default {
       const { pathname } = url;
       const bad = (message: string, status = 400) =>
         json({ ok: false, error: message }, { status, headers: corsHeaders });
+      const origin = req.headers.get("Origin");
+
+      if (pathname.startsWith("/api/") && origin && !isAllowedCorsOrigin(origin)) {
+        return json({ ok: false, error: "Origin not allowed" }, { status: 403, headers: { vary: "Origin" } });
+      }
 
       if (rateLimitTableReady && pathname.startsWith("/api/") && Math.random() < 0.01) {
         await gcRateLimits(env.DB);
@@ -296,6 +416,9 @@ export default {
 
       // CORS preflight
       if (req.method === "OPTIONS" && pathname.startsWith("/api/")) {
+        if (origin && !isAllowedCorsOrigin(origin)) {
+          return json({ ok: false, error: "Origin not allowed" }, { status: 403, headers: { vary: "Origin" } });
+        }
         return new Response(null, { status: 204, headers: corsHeaders });
       }
 
@@ -333,6 +456,8 @@ export default {
         const password = String(body.password ?? "");
 
         if (!username || !password) return bad("Username and password required");
+        if (tooLong(username, 80)) return bad("Username is too long");
+        if (tooLong(password, 256)) return bad("Password is too long");
 
         const user = await env.DB.prepare(
           `SELECT id, pw_hash, pw_salt, pw_iters FROM users WHERE username = ?`
@@ -428,24 +553,22 @@ export default {
         if (!tshirt_size) return bad("Please select a t-shirt size");
         if (!has_home_church) return bad("Please select if you have a home church");
         if (has_home_church === "yes" && !home_church_name) return bad("Home church name is required when selected");
+        if (tooLong(name, FIELD_MAX.name)) return bad("Name is too long");
+        if (email && tooLong(email, FIELD_MAX.email)) return bad("Email is too long");
+        if (phone && tooLong(phone, FIELD_MAX.phone)) return bad("Phone is too long");
+        if (tooLong(address, FIELD_MAX.address)) return bad("Address is too long");
+        if (tooLong(car_year, FIELD_MAX.carYear)) return bad("Car year is too long");
+        if (tooLong(car_make, FIELD_MAX.carMake)) return bad("Car make is too long");
+        if (tooLong(car_model, FIELD_MAX.carModel)) return bad("Car model is too long");
+        if (tooLong(car_color, FIELD_MAX.carColor)) return bad("Car color is too long");
+        if (home_church_name && tooLong(home_church_name, FIELD_MAX.homeChurchName)) return bad("Home church name is too long");
 
-        const reg_number = await nextRegNumber(env.DB);
-        const id = crypto.randomUUID();
-        const created_at = isoNow();
-
-        await env.DB.prepare(
-          `INSERT INTO registrations
-           (id, reg_number, created_at, checked_in_at, name, email, phone, address, car_year, car_make, car_model, car_color, class, attended_before, tshirt_size, has_home_church, home_church_name)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-          .bind(
-            id,
-            reg_number,
-            created_at,
-            created_at,
+        const { reg_number, id, created_at } = await createRegistrationWithRetry(
+          env.DB,
+          {
             name,
-            email || null,
-            phone || null,
+            email,
+            phone,
             address,
             car_year,
             car_make,
@@ -455,9 +578,10 @@ export default {
             attended_before,
             tshirt_size,
             has_home_church,
-            home_church_name || null
-          )
-          .run();
+            home_church_name,
+          },
+          true
+        );
 
         return json(
           {
@@ -522,23 +646,22 @@ export default {
         if (!tshirt_size) return bad("Please select a t-shirt size");
         if (!has_home_church) return bad("Please select if you have a home church");
         if (has_home_church === "yes" && !home_church_name) return bad("Home church name is required when selected");
+        if (tooLong(name, FIELD_MAX.name)) return bad("Name is too long");
+        if (email && tooLong(email, FIELD_MAX.email)) return bad("Email is too long");
+        if (phone && tooLong(phone, FIELD_MAX.phone)) return bad("Phone is too long");
+        if (tooLong(address, FIELD_MAX.address)) return bad("Address is too long");
+        if (tooLong(car_year, FIELD_MAX.carYear)) return bad("Car year is too long");
+        if (tooLong(car_make, FIELD_MAX.carMake)) return bad("Car make is too long");
+        if (tooLong(car_model, FIELD_MAX.carModel)) return bad("Car model is too long");
+        if (tooLong(car_color, FIELD_MAX.carColor)) return bad("Car color is too long");
+        if (home_church_name && tooLong(home_church_name, FIELD_MAX.homeChurchName)) return bad("Home church name is too long");
 
-        const reg_number = await nextRegNumber(env.DB);
-        const id = crypto.randomUUID();
-        const created_at = isoNow();
-
-        await env.DB.prepare(
-          `INSERT INTO registrations
-           (id, reg_number, created_at, name, email, phone, address, car_year, car_make, car_model, car_color, class, attended_before, tshirt_size, has_home_church, home_church_name)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-          .bind(
-            id,
-            reg_number,
-            created_at,
+        const { reg_number, id } = await createRegistrationWithRetry(
+          env.DB,
+          {
             name,
-            email || null,
-            phone || null,
+            email,
+            phone,
             address,
             car_year,
             car_make,
@@ -548,9 +671,10 @@ export default {
             attended_before,
             tshirt_size,
             has_home_church,
-            home_church_name || null
-          )
-          .run();
+            home_church_name,
+          },
+          false
+        );
 
         return json(
           {
@@ -920,7 +1044,7 @@ export default {
 
       // Always respond (prevents hang)
       return json(
-        { ok: false, error: "Unhandled error", detail: String(err?.stack || err) },
+        { ok: false, error: "Unhandled error" },
         { status: 500, headers: corsHeaders }
       );
     }
