@@ -302,28 +302,37 @@
 
     document.getElementById("f").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const fd = new FormData(e.target);
-      const payload = Object.fromEntries(fd.entries());
-
-      const res = await fetch(`${API_BASE}/api/register`, {
-        method: "POST",
-        headers: {"content-type": "application/json"},
-        body: JSON.stringify(payload)
-      });
-
-      const data = await res.json();
+      const btn = e.target.querySelector("button[type=submit]");
       const el = document.getElementById("result");
-      if (!data.ok) {
-        el.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.error || "Error")}</div>`;
-        return;
-      }
+      btn.disabled = true;
+      btn.textContent = "Submitting…";
 
-      el.innerHTML = `
-        <div class="alert alert-success">
-          You are registered for the show. Your car number is <strong>#${data.reg_number}</strong>.
-        </div>
-      `;
-      e.target.reset();
+      try {
+        const fd = new FormData(e.target);
+        const payload = Object.fromEntries(fd.entries());
+
+        const res = await fetch(`${API_BASE}/api/register`, {
+          method: "POST",
+          headers: {"content-type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!data.ok) {
+          el.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.error || "Error")}</div>`;
+          return;
+        }
+
+        el.innerHTML = `
+          <div class="alert alert-success">
+            You are registered for the show. Your car number is <strong>#${data.reg_number}</strong>.
+          </div>
+        `;
+        e.target.reset();
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Submit Registration";
+      }
     });
   </script>
 </body>
