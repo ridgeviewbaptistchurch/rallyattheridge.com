@@ -11,14 +11,18 @@
   const params = new URLSearchParams(location.search);
   const car = params.get("car");
 
-  fetch(`${API_BASE}/api/admin/session`, { credentials: "include" }).then((res) => {
-    if (res.status === 401) {
-      const next = encodeURIComponent(window.location.pathname + window.location.search);
-      location.href = `/admin/login.html?next=${next}`;
-      return;
-    }
-    location.href = `${API_BASE}/api/admin/print/${encodeURIComponent(car)}`;
-  });
+  if (!car) {
+    document.body.innerHTML = "<p>No car number specified.</p>";
+  } else {
+    fetch(`${API_BASE}/api/admin/session`, { credentials: "include" }).then((res) => {
+      if (res.status === 401) {
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        location.href = `/admin/login.html?next=${next}`;
+        return;
+      }
+      location.href = `${API_BASE}/api/admin/print/${encodeURIComponent(car)}`;
+    });
+  }
 </script>
 </body>
 </html>

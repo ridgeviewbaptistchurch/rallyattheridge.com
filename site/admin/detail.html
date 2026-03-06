@@ -46,6 +46,10 @@
   }
 
   async function load() {
+    if (!car) {
+      document.getElementById("card").innerHTML = `<div class="alert alert-danger">No registration number specified.</div>`;
+      return;
+    }
     const res = await fetch(`${API_BASE}/api/admin/registration/${encodeURIComponent(car)}`, { credentials: "include" });
     if (res.status === 401) {
       location.href = "/admin/login.html";

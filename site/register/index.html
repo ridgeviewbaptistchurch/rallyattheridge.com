@@ -281,6 +281,13 @@
 
   <script>
     const API_BASE = "https://api.rallyattheridge.org";
+    const escapeHtml = (v) =>
+      String(v ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     const hasHomeChurchEl = document.getElementById("has_home_church");
     const homeChurchNameEl = document.getElementById("home_church_name");
 
@@ -307,7 +314,7 @@
       const data = await res.json();
       const el = document.getElementById("result");
       if (!data.ok) {
-        el.innerHTML = `<div class="alert alert-danger">${data.error || "Error"}</div>`;
+        el.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.error || "Error")}</div>`;
         return;
       }
 

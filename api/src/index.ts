@@ -589,7 +589,7 @@ export default {
             reg_number,
             id,
             checked_in_at: created_at,
-            print_url: `${env.PUBLIC_SITE_URL}/admin/print.html?car=${reg_number}`,
+            print_url: `${env.PUBLIC_SITE_URL.replace(/\/+$/, "")}/admin/print.html?car=${reg_number}`,
           },
           { headers: corsHeaders }
         );
@@ -681,7 +681,7 @@ export default {
             ok: true,
             reg_number,
             id,
-            print_url: `${env.PUBLIC_SITE_URL}/admin/print.html?car=${reg_number}`,
+            print_url: `${env.PUBLIC_SITE_URL.replace(/\/+$/, "")}/admin/print.html?car=${reg_number}`,
           },
           { headers: corsHeaders }
         );
