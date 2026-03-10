@@ -815,16 +815,6 @@ export default {
           true
         );
 
-        if (email && env.SENDER_API_KEY) {
-          ctx.waitUntil(sendSenderEmail(
-            env,
-            [{ email, name }],
-            `Registration Confirmed — Rally at the Ridge #${reg_number}`,
-            confirmationEmailHtml(reg_number, name, car_year, car_make, car_model, car_color, cls, env.SHOW_DATE ?? ""),
-            confirmationEmailText(reg_number, name, car_year, car_make, car_model, car_color, cls, env.SHOW_DATE ?? "")
-          ));
-        }
-
         return json(
           {
             ok: true,
