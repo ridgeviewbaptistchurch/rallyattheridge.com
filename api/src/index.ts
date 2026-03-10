@@ -400,7 +400,8 @@ async function sendSenderEmail(
   to: { email: string; name: string }[],
   subject: string,
   htmlBody: string,
-  textBody: string
+  textBody: string,
+  sentry?: Toucan | null
 ): Promise<boolean> {
   if (!env.SENDER_API_KEY) return false;
   try {
@@ -422,8 +423,13 @@ async function sendSenderEmail(
         text: textBody,
       }),
     });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "(unreadable)");
+      sentry?.captureException(new Error(`Sender.net error: HTTP ${resp.status} — ${body}`));
+    }
     return resp.ok;
-  } catch {
+  } catch (err) {
+    sentry?.captureException(err);
     return false;
   }
 }
@@ -914,7 +920,8 @@ export default {
             [{ email, name }],
             `Registration Confirmed — Rally at the Ridge #${reg_number}`,
             confirmationEmailHtml(reg_number, name, car_year, car_make, car_model, car_color, cls, env.SHOW_DATE ?? ""),
-            confirmationEmailText(reg_number, name, car_year, car_make, car_model, car_color, cls, env.SHOW_DATE ?? "")
+            confirmationEmailText(reg_number, name, car_year, car_make, car_model, car_color, cls, env.SHOW_DATE ?? ""),
+            sentry
           ));
         }
 
@@ -1317,7 +1324,7 @@ export default {
 
         let sent = 0;
         for (const adminEmail of adminList) {
-          const ok = await sendSenderEmail(env, [{ email: adminEmail, name: "Admin" }], subject, htmlBody, textBody);
+          const ok = await sendSenderEmail(env, [{ email: adminEmail, name: "Admin" }], subject, htmlBody, textBody, sentry);
           if (ok) sent++;
         }
 
@@ -1358,7 +1365,8 @@ export default {
             [{ email: r.email, name: r.name }],
             subject,
             reminderEmailHtml(r.reg_number, r.name, r.car_year, r.car_make, r.car_model, showDate),
-            reminderEmailText(r.reg_number, r.name, r.car_year, r.car_make, r.car_model, showDate)
+            reminderEmailText(r.reg_number, r.name, r.car_year, r.car_make, r.car_model, showDate),
+            sentry
           );
           if (ok) sent++; else failed++;
         }
