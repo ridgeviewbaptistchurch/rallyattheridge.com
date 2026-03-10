@@ -7,8 +7,8 @@ account_id = "efdb9bf05190f003e42285057bfeca6f"
 PUBLIC_SITE_URL = "https://rallyattheridge.org/"
 SENDER_FROM_EMAIL = "noreply@rallyattheridge.org"
 SENDER_FROM_NAME = "Rally at the Ridge"
-ADMIN_EMAILS = ""          # comma-separated, e.g. "you@example.com,other@example.com"
-SHOW_DATE = "September 12, 2026"
+ADMIN_EMAILS = "joshuahcarmack@gmail.com"          # comma-separated, e.g. "you@example.com,other@example.com"
+SHOW_DATE = "April 25, 2026"
 
 # Secrets (set via `wrangler secret put`):
 #   SENDER_API_KEY   — Sender.net API key
