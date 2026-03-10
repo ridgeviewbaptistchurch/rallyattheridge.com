@@ -5,9 +5,10 @@ account_id = "efdb9bf05190f003e42285057bfeca6f"
 
 [vars]
 PUBLIC_SITE_URL = "https://rallyattheridge.org/"
-SENDER_FROM_EMAIL = "noreply@rallyattheridge.org"
-SENDER_FROM_NAME = "Rally at the Ridge"
-ADMIN_EMAILS = "joshuahcarmack@gmail.com"          # comma-separated, e.g. "you@example.com,other@example.com"
+SENDER_TEMPLATE_CONFIRMATION = "e19vGR"   # Sender.net template ID for registration confirmation
+SENDER_TEMPLATE_REMINDER = ""       # Sender.net template ID for event reminder
+SENDER_TEMPLATE_WEEKLY = ""         # Sender.net template ID for weekly admin summary
+ADMIN_EMAILS = "joshuahcarmack@gmail.com"
 SHOW_DATE = "April 25, 2026"
 
 # Secrets (set via `wrangler secret put`):
