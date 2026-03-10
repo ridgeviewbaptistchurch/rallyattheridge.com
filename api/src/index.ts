@@ -6,6 +6,12 @@ type Env = {
   AUTH_SECRET: string;
   SENTRY_DSN?: string;
   SENTRY_ENVIRONMENT?: string;
+  SENDER_API_KEY?: string;
+  SENDER_FROM_EMAIL?: string;
+  SENDER_FROM_NAME?: string;
+  ADMIN_EMAILS?: string;      // comma-separated list of admin email addresses
+  CRON_SECRET?: string;       // Bearer token for external cron callers
+  SHOW_DATE?: string;         // e.g. "September 12, 2026"
 };
 
 const SESSION_COOKIE = "carshow_sess";
@@ -387,6 +393,230 @@ async function gcRateLimits(db: D1Database): Promise<void> {
   await db.prepare(`DELETE FROM rate_limits WHERE expires_at < ?`).bind(now).run();
 }
 
+// ─── Email helpers ────────────────────────────────────────────────────────────
+
+async function sendSenderEmail(
+  env: Env,
+  to: { email: string; name: string }[],
+  subject: string,
+  htmlBody: string,
+  textBody: string
+): Promise<boolean> {
+  if (!env.SENDER_API_KEY) return false;
+  try {
+    const resp = await fetch("https://api.sender.net/v2/transactional/email", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.SENDER_API_KEY}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify({
+        from: {
+          email: env.SENDER_FROM_EMAIL || "noreply@rallyattheridge.org",
+          name: env.SENDER_FROM_NAME || "Rally at the Ridge",
+        },
+        to,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function verifyCronAuth(env: Env, req: Request): Promise<boolean> {
+  // Accept admin session cookie
+  const cookies = parseCookies(req);
+  const session = await verifySession(env, cookies[SESSION_COOKIE]);
+  if (session) return true;
+  // Accept CRON_SECRET via Authorization: Bearer header
+  if (env.CRON_SECRET) {
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const m = /^Bearer\s+(.+)$/i.exec(authHeader.trim());
+    if (m && m[1] === env.CRON_SECRET) return true;
+  }
+  return false;
+}
+
+function clsLabel(cls: string): string {
+  return cls === "car_truck" ? "Car/Truck" : cls === "motorcycle" ? "Motorcycle" : "Other";
+}
+
+function confirmationEmailHtml(
+  reg_number: number,
+  name: string,
+  car_year: string,
+  car_make: string,
+  car_model: string,
+  car_color: string,
+  cls: string,
+  showDate: string
+): string {
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><title>Registration Confirmed</title></head>
+<body style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#111;">
+  <h1 style="font-size:28px;margin-bottom:4px;">Rally at the Ridge</h1>
+  <p style="color:#555;margin-top:0;">Registration Confirmation</p>
+  <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
+  <p>Hi ${escapeHtml(name)},</p>
+  <p>You're registered! Here are your details:</p>
+  <div style="background:#f5f5f5;border-radius:8px;padding:20px;margin:20px 0;">
+    <div style="font-size:48px;font-weight:800;letter-spacing:-1px;">#${reg_number}</div>
+    <div style="font-size:18px;font-weight:700;margin-top:8px;">${escapeHtml(car_year)} ${escapeHtml(car_make)} ${escapeHtml(car_model)}</div>
+    <div style="color:#555;margin-top:4px;">Color: ${escapeHtml(car_color)} | Class: ${escapeHtml(clsLabel(cls))}</div>
+  </div>
+  <p>Remember your registration number — <strong>#${reg_number}</strong> — you'll need it at check-in.</p>
+  ${showDate ? `<p>We'll see you at the show on <strong>${escapeHtml(showDate)}</strong>!</p>` : ""}
+  <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
+  <p style="font-size:12px;color:#999;">Rally at the Ridge &bull; Ridgeview Baptist Church &bull; ridgeviewbaptist.org</p>
+</body></html>`;
+}
+
+function confirmationEmailText(
+  reg_number: number,
+  name: string,
+  car_year: string,
+  car_make: string,
+  car_model: string,
+  car_color: string,
+  cls: string,
+  showDate: string
+): string {
+  return [
+    "Rally at the Ridge - Registration Confirmation",
+    "",
+    `Hi ${name},`,
+    "",
+    "You're registered! Here are your details:",
+    "",
+    `Registration Number: #${reg_number}`,
+    `Vehicle: ${car_year} ${car_make} ${car_model}`,
+    `Color: ${car_color} | Class: ${clsLabel(cls)}`,
+    "",
+    `Remember your registration number — #${reg_number} — you'll need it at check-in.`,
+    ...(showDate ? [`We'll see you at the show on ${showDate}!`, ""] : [""]),
+    "Rally at the Ridge | Ridgeview Baptist Church | ridgeviewbaptist.org",
+  ].join("\n");
+}
+
+function reminderEmailHtml(
+  reg_number: number,
+  name: string,
+  car_year: string,
+  car_make: string,
+  car_model: string,
+  showDate: string
+): string {
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><title>Rally at the Ridge is Coming Up!</title></head>
+<body style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#111;">
+  <h1 style="font-size:28px;margin-bottom:4px;">Rally at the Ridge</h1>
+  <p style="color:#555;margin-top:0;">Event Reminder</p>
+  <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
+  <p>Hi ${escapeHtml(name)},</p>
+  <p>The show is coming up${showDate ? ` on <strong>${escapeHtml(showDate)}</strong>` : " soon"}! We can't wait to see you and your ${escapeHtml(car_year)} ${escapeHtml(car_make)} ${escapeHtml(car_model)}.</p>
+  <div style="background:#f5f5f5;border-radius:8px;padding:20px;margin:20px 0;">
+    <div style="font-size:13px;color:#555;margin-bottom:4px;">Your registration number</div>
+    <div style="font-size:48px;font-weight:800;letter-spacing:-1px;">#${reg_number}</div>
+  </div>
+  <p>Bring this number with you for check-in. See you there!</p>
+  <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
+  <p style="font-size:12px;color:#999;">Rally at the Ridge &bull; Ridgeview Baptist Church &bull; ridgeviewbaptist.org</p>
+</body></html>`;
+}
+
+function reminderEmailText(
+  reg_number: number,
+  name: string,
+  car_year: string,
+  car_make: string,
+  car_model: string,
+  showDate: string
+): string {
+  return [
+    "Rally at the Ridge - Event Reminder",
+    "",
+    `Hi ${name},`,
+    "",
+    `The show is coming up${showDate ? ` on ${showDate}` : " soon"}! We can't wait to see you and your ${car_year} ${car_make} ${car_model}.`,
+    "",
+    `Your registration number: #${reg_number}`,
+    "",
+    "Bring this number with you for check-in. See you there!",
+    "",
+    "Rally at the Ridge | Ridgeview Baptist Church | ridgeviewbaptist.org",
+  ].join("\n");
+}
+
+function weeklySummaryEmailHtml(
+  stats: { total: number; this_week: number; checked_in: number },
+  byClass: { car_truck: number; motorcycle: number; other: number },
+  showDate: string
+): string {
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><title>Rally at the Ridge - Weekly Summary</title></head>
+<body style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#111;">
+  <h1 style="font-size:28px;margin-bottom:4px;">Rally at the Ridge</h1>
+  <p style="color:#555;margin-top:0;">Weekly Registration Summary</p>
+  <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
+  <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+    <tr>
+      <td style="padding:16px;background:#f5f5f5;border-radius:8px;text-align:center;">
+        <div style="font-size:42px;font-weight:800;">${stats.total}</div>
+        <div style="color:#555;font-size:13px;">Total Registered</div>
+      </td>
+      <td style="width:10px;"></td>
+      <td style="padding:16px;background:#f5f5f5;border-radius:8px;text-align:center;">
+        <div style="font-size:42px;font-weight:800;">${stats.this_week}</div>
+        <div style="color:#555;font-size:13px;">New This Week</div>
+      </td>
+      <td style="width:10px;"></td>
+      <td style="padding:16px;background:#f5f5f5;border-radius:8px;text-align:center;">
+        <div style="font-size:42px;font-weight:800;">${stats.checked_in}</div>
+        <div style="color:#555;font-size:13px;">Checked In</div>
+      </td>
+    </tr>
+  </table>
+  <h3 style="margin:0 0 8px 0;">By Class</h3>
+  <ul style="margin:0;padding-left:20px;">
+    <li>Cars / Trucks: <strong>${byClass.car_truck}</strong></li>
+    <li>Motorcycles: <strong>${byClass.motorcycle}</strong></li>
+    <li>Other: <strong>${byClass.other}</strong></li>
+  </ul>
+  ${showDate ? `<p style="margin-top:16px;">Show date: <strong>${escapeHtml(showDate)}</strong></p>` : ""}
+  <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
+  <p style="font-size:12px;color:#999;">Rally at the Ridge Admin &bull; rallyattheridge.org</p>
+</body></html>`;
+}
+
+function weeklySummaryEmailText(
+  stats: { total: number; this_week: number; checked_in: number },
+  byClass: { car_truck: number; motorcycle: number; other: number },
+  showDate: string
+): string {
+  return [
+    "Rally at the Ridge - Weekly Registration Summary",
+    "",
+    `Total Registered : ${stats.total}`,
+    `New This Week    : ${stats.this_week}`,
+    `Checked In       : ${stats.checked_in}`,
+    "",
+    "By Class:",
+    `  Cars / Trucks : ${byClass.car_truck}`,
+    `  Motorcycles   : ${byClass.motorcycle}`,
+    `  Other         : ${byClass.other}`,
+    ...(showDate ? ["", `Show date: ${showDate}`] : []),
+    "",
+    "Rally at the Ridge Admin | rallyattheridge.org",
+  ].join("\n");
+}
+
+// ─── End email helpers ─────────────────────────────────────────────────────────
+
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const corsHeaders = corsHeadersFor(req);
@@ -506,7 +736,9 @@ export default {
       }
 
       const isProtectedApi =
-        (pathname.startsWith("/api/admin/") && pathname !== "/api/admin/login") ||
+        (pathname.startsWith("/api/admin/") &&
+          pathname !== "/api/admin/login" &&
+          !pathname.startsWith("/api/admin/email/")) || // email routes use their own auth (session or CRON_SECRET)
         pathname === "/api/votes" ||
         pathname === "/api/tally" ||
         pathname === "/api/prizes/draw" ||
@@ -582,6 +814,16 @@ export default {
           },
           true
         );
+
+        if (email && env.SENDER_API_KEY) {
+          ctx.waitUntil(sendSenderEmail(
+            env,
+            [{ email, name }],
+            `Registration Confirmed — Rally at the Ridge #${reg_number}`,
+            confirmationEmailHtml(reg_number, name, car_year, car_make, car_model, car_color, cls, env.SHOW_DATE ?? ""),
+            confirmationEmailText(reg_number, name, car_year, car_make, car_model, car_color, cls, env.SHOW_DATE ?? "")
+          ));
+        }
 
         return json(
           {
@@ -675,6 +917,16 @@ export default {
           },
           false
         );
+
+        if (email && env.SENDER_API_KEY) {
+          ctx.waitUntil(sendSenderEmail(
+            env,
+            [{ email, name }],
+            `Registration Confirmed — Rally at the Ridge #${reg_number}`,
+            confirmationEmailHtml(reg_number, name, car_year, car_make, car_model, car_color, cls, env.SHOW_DATE ?? ""),
+            confirmationEmailText(reg_number, name, car_year, car_make, car_model, car_color, cls, env.SHOW_DATE ?? "")
+          ));
+        }
 
         return json(
           {
@@ -1031,6 +1283,97 @@ export default {
 
           return html(page);
         }
+      }
+
+      // POST /api/admin/email/weekly-summary
+      // Auth: admin session cookie OR Authorization: Bearer <CRON_SECRET>
+      if (req.method === "POST" && pathname === "/api/admin/email/weekly-summary") {
+        if (!await verifyCronAuth(env, req)) {
+          return json({ ok: false, error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+        }
+        if (!env.SENDER_API_KEY) return bad("Email not configured (SENDER_API_KEY missing)");
+        if (!env.ADMIN_EMAILS) return bad("Admin emails not configured (ADMIN_EMAILS missing)");
+
+        const statsRow = await env.DB.prepare(
+          `SELECT
+             COUNT(*) AS total,
+             SUM(CASE WHEN checked_in_at IS NOT NULL THEN 1 ELSE 0 END) AS checked_in,
+             SUM(CASE WHEN created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS this_week
+           FROM registrations`
+        ).first<{ total: number; checked_in: number | null; this_week: number | null }>();
+
+        const classRows = (await env.DB.prepare(
+          `SELECT class, COUNT(*) AS cnt FROM registrations GROUP BY class`
+        ).all<{ class: string; cnt: number }>()).results;
+
+        const byClass = { car_truck: 0, motorcycle: 0, other: 0 };
+        for (const row of classRows) {
+          if (row.class === "car_truck") byClass.car_truck = Number(row.cnt);
+          else if (row.class === "motorcycle") byClass.motorcycle = Number(row.cnt);
+          else if (row.class === "other") byClass.other = Number(row.cnt);
+        }
+
+        const stats = {
+          total: Number(statsRow?.total ?? 0),
+          checked_in: Number(statsRow?.checked_in ?? 0),
+          this_week: Number(statsRow?.this_week ?? 0),
+        };
+
+        const showDate = env.SHOW_DATE ?? "";
+        const adminList = env.ADMIN_EMAILS.split(",").map(e => e.trim()).filter(Boolean);
+        const subject = "Rally at the Ridge — Weekly Registration Summary";
+        const htmlBody = weeklySummaryEmailHtml(stats, byClass, showDate);
+        const textBody = weeklySummaryEmailText(stats, byClass, showDate);
+
+        let sent = 0;
+        for (const adminEmail of adminList) {
+          const ok = await sendSenderEmail(env, [{ email: adminEmail, name: "Admin" }], subject, htmlBody, textBody);
+          if (ok) sent++;
+        }
+
+        return json({ ok: true, stats, by_class: byClass, emails_sent: sent, emails_attempted: adminList.length }, { headers: corsHeaders });
+      }
+
+      // POST /api/admin/email/reminders
+      // Auth: admin session cookie OR Authorization: Bearer <CRON_SECRET>
+      // Query params: ?dry_run=true  — returns count without sending
+      if (req.method === "POST" && pathname === "/api/admin/email/reminders") {
+        if (!await verifyCronAuth(env, req)) {
+          return json({ ok: false, error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+        }
+        if (!env.SENDER_API_KEY) return bad("Email not configured (SENDER_API_KEY missing)");
+
+        const dryRun = url.searchParams.get("dry_run") === "true";
+        const showDate = env.SHOW_DATE ?? "";
+
+        const rows = (await env.DB.prepare(
+          `SELECT reg_number, name, email, car_year, car_make, car_model
+           FROM registrations
+           WHERE email IS NOT NULL AND email != ''
+           ORDER BY reg_number ASC`
+        ).all<{ reg_number: number; name: string; email: string; car_year: string; car_make: string; car_model: string }>()).results;
+
+        if (dryRun) {
+          return json({ ok: true, dry_run: true, would_send: rows.length }, { headers: corsHeaders });
+        }
+
+        let sent = 0;
+        let failed = 0;
+        for (const r of rows) {
+          const subject = showDate
+            ? `Rally at the Ridge is coming up — ${showDate}!`
+            : "Rally at the Ridge is coming up!";
+          const ok = await sendSenderEmail(
+            env,
+            [{ email: r.email, name: r.name }],
+            subject,
+            reminderEmailHtml(r.reg_number, r.name, r.car_year, r.car_make, r.car_model, showDate),
+            reminderEmailText(r.reg_number, r.name, r.car_year, r.car_make, r.car_model, showDate)
+          );
+          if (ok) sent++; else failed++;
+        }
+
+        return json({ ok: true, total: rows.length, sent, failed }, { headers: corsHeaders });
       }
 
       // Default 404
