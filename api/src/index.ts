@@ -8,10 +8,6 @@ type Env = {
   SENTRY_ENVIRONMENT?: string;
   SENDER_API_KEY?: string;
   SENDER_TEMPLATE_CONFIRMATION?: string;  // Sender.net template ID for registration confirmation
-  SENDER_TEMPLATE_REMINDER?: string;      // Sender.net template ID for event reminder
-  SENDER_TEMPLATE_WEEKLY?: string;        // Sender.net template ID for weekly admin summary
-  ADMIN_EMAILS?: string;      // comma-separated list of admin email addresses
-  CRON_SECRET?: string;       // Bearer token for external cron callers
   SHOW_DATE?: string;         // e.g. "September 12, 2026"
 };
 
@@ -424,18 +420,6 @@ async function sendTemplateEmail(
   }
 }
 
-async function verifyCronAuth(env: Env, req: Request): Promise<boolean> {
-  const cookies = parseCookies(req);
-  const session = await verifySession(env, cookies[SESSION_COOKIE]);
-  if (session) return true;
-  if (env.CRON_SECRET) {
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const m = /^Bearer\s+(.+)$/i.exec(authHeader.trim());
-    if (m && m[1] === env.CRON_SECRET) return true;
-  }
-  return false;
-}
-
 // ─── End email helpers ─────────────────────────────────────────────────────────
 
 export default {
@@ -558,8 +542,7 @@ export default {
 
       const isProtectedApi =
         (pathname.startsWith("/api/admin/") &&
-          pathname !== "/api/admin/login" &&
-          !pathname.startsWith("/api/admin/email/")) || // email routes use their own auth (session or CRON_SECRET)
+          pathname !== "/api/admin/login") ||
         pathname === "/api/votes" ||
         pathname === "/api/tally" ||
         pathname === "/api/prizes/draw" ||
@@ -1097,104 +1080,6 @@ export default {
         }
       }
 
-      // POST /api/admin/email/weekly-summary
-      // Auth: admin session cookie OR Authorization: Bearer <CRON_SECRET>
-      if (req.method === "POST" && pathname === "/api/admin/email/weekly-summary") {
-        if (!await verifyCronAuth(env, req)) {
-          return json({ ok: false, error: "Unauthorized" }, { status: 401, headers: corsHeaders });
-        }
-        if (!env.SENDER_API_KEY) return bad("Email not configured (SENDER_API_KEY missing)");
-        if (!env.ADMIN_EMAILS) return bad("Admin emails not configured (ADMIN_EMAILS missing)");
-
-        const statsRow = await env.DB.prepare(
-          `SELECT
-             COUNT(*) AS total,
-             SUM(CASE WHEN checked_in_at IS NOT NULL THEN 1 ELSE 0 END) AS checked_in,
-             SUM(CASE WHEN created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS this_week
-           FROM registrations`
-        ).first<{ total: number; checked_in: number | null; this_week: number | null }>();
-
-        const classRows = (await env.DB.prepare(
-          `SELECT class, COUNT(*) AS cnt FROM registrations GROUP BY class`
-        ).all<{ class: string; cnt: number }>()).results;
-
-        const byClass = { car_truck: 0, motorcycle: 0, other: 0 };
-        for (const row of classRows) {
-          if (row.class === "car_truck") byClass.car_truck = Number(row.cnt);
-          else if (row.class === "motorcycle") byClass.motorcycle = Number(row.cnt);
-          else if (row.class === "other") byClass.other = Number(row.cnt);
-        }
-
-        const stats = {
-          total: Number(statsRow?.total ?? 0),
-          checked_in: Number(statsRow?.checked_in ?? 0),
-          this_week: Number(statsRow?.this_week ?? 0),
-        };
-
-        const showDate = env.SHOW_DATE ?? "";
-        const adminList = env.ADMIN_EMAILS.split(",").map(e => e.trim()).filter(Boolean);
-        if (!env.SENDER_TEMPLATE_WEEKLY) return bad("Weekly summary template not configured (SENDER_TEMPLATE_WEEKLY missing)");
-
-        let sent = 0;
-        for (const adminEmail of adminList) {
-          const ok = await sendTemplateEmail(env, env.SENDER_TEMPLATE_WEEKLY, adminEmail, {
-            total: String(stats.total),
-            this_week: String(stats.this_week),
-            checked_in: String(stats.checked_in),
-            cars_trucks: String(byClass.car_truck),
-            motorcycles: String(byClass.motorcycle),
-            other: String(byClass.other),
-            show_date: showDate,
-          }, sentry);
-          if (ok) sent++;
-        }
-
-        return json({ ok: true, stats, by_class: byClass, emails_sent: sent, emails_attempted: adminList.length }, { headers: corsHeaders });
-      }
-
-      // POST /api/admin/email/reminders
-      // Auth: admin session cookie OR Authorization: Bearer <CRON_SECRET>
-      // Query params: ?dry_run=true  — returns count without sending
-      if (req.method === "POST" && pathname === "/api/admin/email/reminders") {
-        if (!await verifyCronAuth(env, req)) {
-          return json({ ok: false, error: "Unauthorized" }, { status: 401, headers: corsHeaders });
-        }
-        if (!env.SENDER_API_KEY) return bad("Email not configured (SENDER_API_KEY missing)");
-
-        const dryRun = url.searchParams.get("dry_run") === "true";
-        const showDate = env.SHOW_DATE ?? "";
-
-        const rows = (await env.DB.prepare(
-          `SELECT reg_number, name, email, car_year, car_make, car_model
-           FROM registrations
-           WHERE email IS NOT NULL AND email != ''
-           ORDER BY reg_number ASC`
-        ).all<{ reg_number: number; name: string; email: string; car_year: string; car_make: string; car_model: string }>()).results;
-
-        if (dryRun) {
-          return json({ ok: true, dry_run: true, would_send: rows.length }, { headers: corsHeaders });
-        }
-
-        if (!env.SENDER_TEMPLATE_REMINDER) return bad("Reminder template not configured (SENDER_TEMPLATE_REMINDER missing)");
-
-        let sent = 0;
-        let failed = 0;
-        for (const r of rows) {
-          const [firstname, ...rest] = r.name.split(" ");
-          const ok = await sendTemplateEmail(env, env.SENDER_TEMPLATE_REMINDER, r.email, {
-            firstname,
-            lastname: rest.join(" "),
-            id_number: String(r.reg_number),
-            car_year: r.car_year,
-            car_make: r.car_make,
-            car_model: r.car_model,
-            show_date: showDate,
-          }, sentry);
-          if (ok) sent++; else failed++;
-        }
-
-        return json({ ok: true, total: rows.length, sent, failed }, { headers: corsHeaders });
-      }
 
       // Default 404
       if (pathname === "/favicon.ico") return new Response(null, { status: 204 });
