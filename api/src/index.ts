@@ -397,15 +397,14 @@ async function gcRateLimits(db: D1Database): Promise<void> {
 
 async function sendSenderEmail(
   env: Env,
-  to: { email: string; name: string }[],
+  to: { email: string; name: string },
   subject: string,
   htmlBody: string,
-  textBody: string,
   sentry?: Toucan | null
 ): Promise<boolean> {
   if (!env.SENDER_API_KEY) return false;
   try {
-    const resp = await fetch("https://api.sender.net/v2/emails", {
+    const resp = await fetch("https://api.sender.net/v2/message/send", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${env.SENDER_API_KEY}`,
@@ -420,7 +419,6 @@ async function sendSenderEmail(
         to,
         subject,
         html: htmlBody,
-        text: textBody,
       }),
     });
     if (!resp.ok) {
@@ -482,33 +480,6 @@ function confirmationEmailHtml(
 </body></html>`;
 }
 
-function confirmationEmailText(
-  reg_number: number,
-  name: string,
-  car_year: string,
-  car_make: string,
-  car_model: string,
-  car_color: string,
-  cls: string,
-  showDate: string
-): string {
-  return [
-    "Rally at the Ridge - Registration Confirmation",
-    "",
-    `Hi ${name},`,
-    "",
-    "You're registered! Here are your details:",
-    "",
-    `Registration Number: #${reg_number}`,
-    `Vehicle: ${car_year} ${car_make} ${car_model}`,
-    `Color: ${car_color} | Class: ${clsLabel(cls)}`,
-    "",
-    `Remember your registration number — #${reg_number} — you'll need it at check-in.`,
-    ...(showDate ? [`We'll see you at the show on ${showDate}!`, ""] : [""]),
-    "Rally at the Ridge | Ridgeview Baptist Church | ridgeviewbaptist.org",
-  ].join("\n");
-}
-
 function reminderEmailHtml(
   reg_number: number,
   name: string,
@@ -533,29 +504,6 @@ function reminderEmailHtml(
   <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
   <p style="font-size:12px;color:#999;">Rally at the Ridge &bull; Ridgeview Baptist Church &bull; ridgeviewbaptist.org</p>
 </body></html>`;
-}
-
-function reminderEmailText(
-  reg_number: number,
-  name: string,
-  car_year: string,
-  car_make: string,
-  car_model: string,
-  showDate: string
-): string {
-  return [
-    "Rally at the Ridge - Event Reminder",
-    "",
-    `Hi ${name},`,
-    "",
-    `The show is coming up${showDate ? ` on ${showDate}` : " soon"}! We can't wait to see you and your ${car_year} ${car_make} ${car_model}.`,
-    "",
-    `Your registration number: #${reg_number}`,
-    "",
-    "Bring this number with you for check-in. See you there!",
-    "",
-    "Rally at the Ridge | Ridgeview Baptist Church | ridgeviewbaptist.org",
-  ].join("\n");
 }
 
 function weeklySummaryEmailHtml(
@@ -597,28 +545,6 @@ function weeklySummaryEmailHtml(
   <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">
   <p style="font-size:12px;color:#999;">Rally at the Ridge Admin &bull; rallyattheridge.org</p>
 </body></html>`;
-}
-
-function weeklySummaryEmailText(
-  stats: { total: number; this_week: number; checked_in: number },
-  byClass: { car_truck: number; motorcycle: number; other: number },
-  showDate: string
-): string {
-  return [
-    "Rally at the Ridge - Weekly Registration Summary",
-    "",
-    `Total Registered : ${stats.total}`,
-    `New This Week    : ${stats.this_week}`,
-    `Checked In       : ${stats.checked_in}`,
-    "",
-    "By Class:",
-    `  Cars / Trucks : ${byClass.car_truck}`,
-    `  Motorcycles   : ${byClass.motorcycle}`,
-    `  Other         : ${byClass.other}`,
-    ...(showDate ? ["", `Show date: ${showDate}`] : []),
-    "",
-    "Rally at the Ridge Admin | rallyattheridge.org",
-  ].join("\n");
 }
 
 // ─── End email helpers ─────────────────────────────────────────────────────────
@@ -917,10 +843,9 @@ export default {
         if (email && env.SENDER_API_KEY) {
           ctx.waitUntil(sendSenderEmail(
             env,
-            [{ email, name }],
+            { email, name },
             `Registration Confirmed — Rally at the Ridge #${reg_number}`,
             confirmationEmailHtml(reg_number, name, car_year, car_make, car_model, car_color, cls, env.SHOW_DATE ?? ""),
-            confirmationEmailText(reg_number, name, car_year, car_make, car_model, car_color, cls, env.SHOW_DATE ?? ""),
             sentry
           ));
         }
@@ -1320,11 +1245,10 @@ export default {
         const adminList = env.ADMIN_EMAILS.split(",").map(e => e.trim()).filter(Boolean);
         const subject = "Rally at the Ridge — Weekly Registration Summary";
         const htmlBody = weeklySummaryEmailHtml(stats, byClass, showDate);
-        const textBody = weeklySummaryEmailText(stats, byClass, showDate);
 
         let sent = 0;
         for (const adminEmail of adminList) {
-          const ok = await sendSenderEmail(env, [{ email: adminEmail, name: "Admin" }], subject, htmlBody, textBody, sentry);
+          const ok = await sendSenderEmail(env, { email: adminEmail, name: "Admin" }, subject, htmlBody, sentry);
           if (ok) sent++;
         }
 
@@ -1362,10 +1286,9 @@ export default {
             : "Rally at the Ridge is coming up!";
           const ok = await sendSenderEmail(
             env,
-            [{ email: r.email, name: r.name }],
+            { email: r.email, name: r.name },
             subject,
             reminderEmailHtml(r.reg_number, r.name, r.car_year, r.car_make, r.car_model, showDate),
-            reminderEmailText(r.reg_number, r.name, r.car_year, r.car_make, r.car_model, showDate),
             sentry
           );
           if (ok) sent++; else failed++;
