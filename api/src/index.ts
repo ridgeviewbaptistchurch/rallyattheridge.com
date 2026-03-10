@@ -405,7 +405,7 @@ async function sendSenderEmail(
 ): Promise<boolean> {
   if (!env.SENDER_API_KEY) return false;
   try {
-    const resp = await fetch("https://api.sender.net/v2/transactional/email", {
+    const resp = await fetch("https://api.sender.net/v2/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${env.SENDER_API_KEY}`,
