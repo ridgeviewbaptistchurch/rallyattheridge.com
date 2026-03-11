@@ -81,7 +81,13 @@ npx wrangler d1 execute carshow_db --remote --command="SELECT COUNT(*) FROM regi
 | Variable | Where set | Description |
 |---|---|---|
 | `PUBLIC_SITE_URL` | `wrangler.toml` `[vars]` | Base URL of the static site |
+| `SENDER_FROM_EMAIL` | `wrangler.toml` `[vars]` | From address for transactional emails |
+| `SENDER_FROM_NAME` | `wrangler.toml` `[vars]` | From name for transactional emails |
+| `ADMIN_EMAILS` | `wrangler.toml` `[vars]` | Comma-separated list of admin emails for weekly summary |
+| `SHOW_DATE` | `wrangler.toml` `[vars]` | Event date string, e.g. `September 12, 2026` |
 | `AUTH_SECRET` | Wrangler secret | HMAC key for signing session cookies |
+| `SENDER_API_KEY` | Wrangler secret | Sender.net transactional API key |
+| `CRON_SECRET` | Wrangler secret | Bearer token for external cron callers (weekly summary, reminders) |
 | `SENTRY_DSN` | Wrangler secret (optional) | Sentry error tracking DSN |
 | `SENTRY_ENVIRONMENT` | Wrangler secret (optional) | e.g. `production` |
 
@@ -91,6 +97,18 @@ To set a secret:
 cd api
 npx wrangler secret put AUTH_SECRET
 ```
+
+#### Email (Sender.net)
+
+Transactional emails are sent via [Sender.net](https://www.sender.net/). Three email flows are supported:
+
+| Flow | Trigger | Description |
+|---|---|---|
+| Confirmation | Public or admin registration (if email provided) | Sent via `ctx.waitUntil()` immediately after registration |
+| Weekly summary | `POST /api/admin/email/weekly-summary` | Summary of registrations; auth via session cookie or `Authorization: Bearer <CRON_SECRET>` |
+| Reminders | `POST /api/admin/email/reminders` | Reminder emails to registrants; supports `?dry_run=true` to preview count without sending |
+
+The weekly summary and reminder endpoints accept either a logged-in admin session cookie **or** an `Authorization: Bearer <CRON_SECRET>` header, making them safe to call from an external cron service.
 
 #### Creating an admin user
 
@@ -114,5 +132,6 @@ The admin panel lives at `/admin/` and requires a login. Features:
 
 - **Frontend**: Plain HTML, CSS, vanilla JS. Bootstrap 5 for admin pages only.
 - **Backend**: Cloudflare Workers (TypeScript), Cloudflare D1 (SQLite), Wrangler
+- **Email**: Sender.net transactional API
 - **Error tracking**: Sentry via `toucan-js`
 - **Auth**: PBKDF2 password hashing, HMAC-signed session cookies
