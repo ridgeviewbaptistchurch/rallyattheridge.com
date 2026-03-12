@@ -324,9 +324,11 @@
           return;
         }
 
+        const emailVal = fd.get("email");
+        const emailNote = emailVal ? ` A confirmation email has been sent to ${escapeHtml(emailVal)}.` : "";
         el.innerHTML = `
           <div class="alert alert-success">
-            You are registered for the show. Your car number is <strong>#${data.reg_number}</strong>.
+            You are registered for the show. Your car number is <strong>#${data.reg_number}</strong>.${emailNote}
           </div>
         `;
         e.target.reset();
