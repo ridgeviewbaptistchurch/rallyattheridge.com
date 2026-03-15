@@ -398,7 +398,6 @@
           </div>
         `;
         el.scrollIntoView({ behavior: "smooth", block: "start" });
-        window.rybbit?.track("registration", { class: payload.class });
       } catch (err) {
         el.innerHTML = `<div class="alert alert-danger">Something went wrong. Please check your connection and try again.</div>`;
         el.scrollIntoView({ behavior: "smooth", block: "start" });
