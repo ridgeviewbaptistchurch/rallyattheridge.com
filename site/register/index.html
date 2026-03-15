@@ -329,6 +329,8 @@
           return;
         }
 
+        window.rybbit?.track("registration", { class: payload.class });
+
         const emailVal = fd.get("email");
         const emailNote = emailVal ? ` A confirmation email has been sent to ${escapeHtml(emailVal)}.` : "";
         el.innerHTML = `
