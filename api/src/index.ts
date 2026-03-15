@@ -8,6 +8,7 @@ type Env = {
   SENTRY_ENVIRONMENT?: string;
   SENDER_API_KEY?: string;
   SENDER_TEMPLATE_CONFIRMATION?: string;  // Sender.net template ID for registration confirmation
+  SENDER_GROUP_ID?: string;              // Sender.net group ID to subscribe registrants to
   SHOW_DATE?: string;         // e.g. "September 12, 2026"
 };
 
@@ -420,6 +421,32 @@ async function sendTemplateEmail(
   }
 }
 
+async function addSenderSubscriber(
+  env: Env,
+  email: string,
+  firstname: string,
+  lastname: string,
+  sentry?: Toucan | null
+): Promise<void> {
+  if (!env.SENDER_API_KEY || !env.SENDER_GROUP_ID) return;
+  try {
+    const resp = await fetch("https://api.sender.net/v2/subscribers", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.SENDER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, firstname, lastname, groups: [env.SENDER_GROUP_ID] }),
+    });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "(unreadable)");
+      sentry?.captureException(new Error(`Sender.net subscriber error: HTTP ${resp.status} — ${body}`));
+    }
+  } catch (err) {
+    sentry?.captureException(err);
+  }
+}
+
 // ─── End email helpers ─────────────────────────────────────────────────────────
 
 export default {
@@ -714,13 +741,17 @@ export default {
 
         if (email && env.SENDER_API_KEY && env.SENDER_TEMPLATE_CONFIRMATION) {
           const [firstname, ...rest] = name.split(" ");
-          ctx.waitUntil(sendTemplateEmail(
-            env,
-            env.SENDER_TEMPLATE_CONFIRMATION,
-            email,
-            { firstname, lastname: rest.join(" "), id_number: String(reg_number) },
-            sentry
-          ));
+          const lastname = rest.join(" ");
+          ctx.waitUntil(Promise.all([
+            sendTemplateEmail(
+              env,
+              env.SENDER_TEMPLATE_CONFIRMATION,
+              email,
+              { firstname, lastname, id_number: String(reg_number) },
+              sentry
+            ),
+            addSenderSubscriber(env, email, firstname, lastname, sentry),
+          ]));
         }
 
         return json(

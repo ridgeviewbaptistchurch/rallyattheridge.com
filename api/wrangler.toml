@@ -10,6 +10,10 @@ SHOW_DATE = "April 25, 2026"
 
 # Secrets (set via `wrangler secret put`):
 #   SENDER_API_KEY   — Sender.net API key
+#
+# To find SENDER_GROUP_ID: GET https://api.sender.net/v2/groups with your API key
+# Then set it below:
+SENDER_GROUP_ID = "aMKLRG"
 
 [[d1_databases]]
 binding = "DB"
