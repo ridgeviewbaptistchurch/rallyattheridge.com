@@ -493,7 +493,12 @@ export default {
 
       // Health
       if (req.method === "GET" && pathname === "/api/health") {
-        return json({ ok: true }, { headers: corsHeaders });
+        try {
+          const row = await env.DB.prepare("SELECT COUNT(*) AS count FROM registrations WHERE id NOT LIKE 'test-%'").first<{ count: number }>();
+          return json({ ok: true, db: "ok", registrations: Number(row?.count ?? 0) }, { headers: corsHeaders });
+        } catch (err) {
+          return json({ ok: false, db: "error", error: String(err) }, { status: 503, headers: corsHeaders });
+        }
       }
 
       //Login
