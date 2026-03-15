@@ -10,6 +10,7 @@ type Env = {
   SENDER_TEMPLATE_CONFIRMATION?: string;  // Sender.net template ID for registration confirmation
   SENDER_GROUP_ID?: string;              // Sender.net group ID to subscribe registrants to
   SHOW_DATE?: string;         // e.g. "September 12, 2026"
+  CRON_SECRET?: string;       // Bearer token for external callers (Grafana, cron, etc.)
 };
 
 const SESSION_COOKIE = "carshow_sess";
@@ -498,6 +499,56 @@ export default {
           return json({ ok: true, db: "ok", registrations: Number(row?.count ?? 0) }, { headers: corsHeaders });
         } catch (err) {
           return json({ ok: false, db: "error", error: String(err) }, { status: 503, headers: corsHeaders });
+        }
+      }
+
+      // Metrics (auth: Bearer CRON_SECRET or admin session cookie)
+      if (req.method === "GET" && pathname.startsWith("/api/metrics/")) {
+        const authHeader = req.headers.get("Authorization") ?? "";
+        const tokenOk = env.CRON_SECRET && authHeader === `Bearer ${env.CRON_SECRET}`;
+        if (!tokenOk) {
+          const sess = await verifySession(env, parseCookies(req)[SESSION_COOKIE]);
+          if (!sess) return json({ ok: false, error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+        }
+
+        if (pathname === "/api/metrics/registrations") {
+          const row = await env.DB.prepare(
+            `SELECT
+               COUNT(*) AS total,
+               SUM(CASE WHEN checked_in_at IS NOT NULL THEN 1 ELSE 0 END) AS checked_in,
+               SUM(CASE WHEN checked_in_at IS NULL THEN 1 ELSE 0 END) AS not_checked_in,
+               SUM(CASE WHEN checked_in_at IS NOT NULL AND attended_before = 'no' THEN 1 ELSE 0 END) AS checked_in_new
+             FROM registrations
+             WHERE id NOT LIKE 'test-%'`
+          ).first<{ total: number; checked_in: number | null; not_checked_in: number | null; checked_in_new: number | null }>();
+          return json({
+            ok: true,
+            total: Number(row?.total ?? 0),
+            checked_in: Number(row?.checked_in ?? 0),
+            not_checked_in: Number(row?.not_checked_in ?? 0),
+            checked_in_new: Number(row?.checked_in_new ?? 0),
+          }, { headers: corsHeaders });
+        }
+
+        if (pathname === "/api/metrics/votes") {
+          const [totalRow, topRows] = await Promise.all([
+            env.DB.prepare("SELECT COUNT(*) AS total FROM votes").first<{ total: number }>(),
+            env.DB.prepare(
+              `SELECT r.reg_number, r.name, r.car_year, r.car_make, r.car_model, r.car_color, r.class,
+                      COUNT(v.id) AS vote_count
+               FROM votes v
+               JOIN registrations r ON r.reg_number = v.reg_number
+               WHERE r.id NOT LIKE 'test-%'
+               GROUP BY v.reg_number
+               ORDER BY vote_count DESC
+               LIMIT 10`
+            ).all(),
+          ]);
+          return json({
+            ok: true,
+            total_votes: Number(totalRow?.total ?? 0),
+            top_10: topRows.results,
+          }, { headers: corsHeaders });
         }
       }
 
