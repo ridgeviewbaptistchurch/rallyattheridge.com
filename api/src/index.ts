@@ -412,10 +412,12 @@ async function sendTemplateEmail(
     });
     if (!resp.ok) {
       const body = await resp.text().catch(() => "(unreadable)");
+      console.error(`Sender.net template email failed: HTTP ${resp.status} — ${body}`);
       sentry?.captureException(new Error(`Sender.net error: HTTP ${resp.status} — ${body}`));
     }
     return resp.ok;
   } catch (err) {
+    console.error("Sender.net template email exception:", err);
     sentry?.captureException(err);
     return false;
   }
