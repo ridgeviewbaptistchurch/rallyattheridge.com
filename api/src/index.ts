@@ -851,6 +851,17 @@ export default {
         return json({ ok: true, results }, { headers: corsHeaders });
       }
 
+      // GET /api/admin/registrations
+      if (req.method === "GET" && pathname === "/api/admin/registrations") {
+        const rows = (await env.DB.prepare(
+          `SELECT reg_number, name, car_year, car_make, car_model, car_color, class, checked_in_at
+           FROM registrations
+           WHERE id NOT LIKE 'test-%'
+           ORDER BY reg_number ASC`
+        ).all()).results;
+        return json({ ok: true, registrations: rows }, { headers: corsHeaders });
+      }
+
       // GET /api/admin/stats
       if (req.method === "GET" && pathname === "/api/admin/stats") {
         const row = await env.DB.prepare(
