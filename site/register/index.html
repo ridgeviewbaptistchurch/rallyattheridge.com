@@ -360,6 +360,7 @@
       const el = document.getElementById("result");
       btn.disabled = true;
       btn.textContent = "Submitting…";
+      let succeeded = false;
 
       try {
         const fd = new FormData(e.target);
@@ -373,10 +374,12 @@
 
         const data = await res.json();
         if (!data.ok) {
-          el.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.error || "Error")}</div>`;
+          el.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.error || "Registration failed. Please try again.")}</div>`;
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
           return;
         }
 
+        succeeded = true;
         window.rybbit?.track("registration", { class: payload.class });
 
         const emailVal = fd.get("email");
@@ -396,9 +399,14 @@
           </div>
         `;
         el.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (err) {
+        el.innerHTML = `<div class="alert alert-danger">Something went wrong. Please check your connection and try again.</div>`;
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
       } finally {
-        btn.disabled = false;
-        btn.textContent = "Submit Registration";
+        if (!succeeded) {
+          btn.disabled = false;
+          btn.textContent = "Submit Registration";
+        }
       }
     });
   </script>
