@@ -83,8 +83,10 @@ npx wrangler d1 execute carshow_db --remote --command="SELECT COUNT(*) FROM regi
 | `PUBLIC_SITE_URL` | `wrangler.toml` `[vars]` | Base URL of the static site |
 | `SENDER_FROM_EMAIL` | `wrangler.toml` `[vars]` | From address for transactional emails |
 | `SENDER_FROM_NAME` | `wrangler.toml` `[vars]` | From name for transactional emails |
+| `SENDER_TEMPLATE_CONFIRMATION` | `wrangler.toml` `[vars]` | Sender.net template ID for the registration confirmation email |
+| `SENDER_GROUP_ID` | `wrangler.toml` `[vars]` | Sender.net group ID to subscribe registrants to (see below) |
 | `ADMIN_EMAILS` | `wrangler.toml` `[vars]` | Comma-separated list of admin emails for weekly summary |
-| `SHOW_DATE` | `wrangler.toml` `[vars]` | Event date string, e.g. `September 12, 2026` |
+| `SHOW_DATE` | `wrangler.toml` `[vars]` | Event date string, e.g. `April 25, 2026` |
 | `AUTH_SECRET` | Wrangler secret | HMAC key for signing session cookies |
 | `SENDER_API_KEY` | Wrangler secret | Sender.net transactional API key |
 | `CRON_SECRET` | Wrangler secret | Bearer token for external cron callers (weekly summary, reminders) |
@@ -110,6 +112,14 @@ Transactional emails are sent via [Sender.net](https://www.sender.net/). Three e
 
 The weekly summary and reminder endpoints accept either a logged-in admin session cookie **or** an `Authorization: Bearer <CRON_SECRET>` header, making them safe to call from an external cron service.
 
+**Group subscription**: When a registrant provides an email address, they are also subscribed to the Sender.net group specified by `SENDER_GROUP_ID`. This uses the `POST https://api.sender.net/v2/subscribers` endpoint. To find your group ID:
+
+```bash
+curl -H "Authorization: Bearer <SENDER_API_KEY>" https://api.sender.net/v2/groups
+```
+
+Then set `SENDER_GROUP_ID` in `wrangler.toml`.
+
 #### Creating an admin user
 
 Use the tool in `api/tools/make-user.mjs` to generate the SQL for a new admin user, then insert it into the database:
@@ -118,6 +128,10 @@ Use the tool in `api/tools/make-user.mjs` to generate the SQL for a new admin us
 node api/tools/make-user.mjs
 # follow the prompts, then run the output SQL with wrangler d1 execute
 ```
+
+#### Test registrations
+
+The migration `api/migrations/2026-03-10_test_users.sql` inserts 10 seed registrations with IDs prefixed `test-`. These are excluded from admin stats counts and from prize drawings so they don't skew real numbers.
 
 ## Admin panel
 
