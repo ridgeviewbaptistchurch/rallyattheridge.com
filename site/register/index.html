@@ -165,6 +165,54 @@
       margin-top: 14px;
     }
 
+    .success-screen {
+      text-align: center;
+      padding: 32px 16px;
+    }
+
+    .reg-number {
+      display: inline-block;
+      font-size: clamp(3rem, 10vw, 5rem);
+      font-weight: 900;
+      color: var(--accent);
+      background: rgba(255, 177, 0, 0.1);
+      border: 2px solid rgba(255, 177, 0, 0.4);
+      border-radius: 16px;
+      padding: 12px 40px;
+      margin: 16px 0;
+      letter-spacing: 2px;
+    }
+
+    .success-screen h2 {
+      margin: 0 0 8px;
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      color: var(--success);
+    }
+
+    .success-screen p {
+      color: var(--muted);
+      margin: 8px 0;
+    }
+
+    .register-another {
+      margin-top: 24px;
+      display: inline-block;
+      border: 0;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 700;
+      padding: 12px 22px;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text);
+      font: inherit;
+      transition: background 0.15s ease;
+    }
+
+    .register-another:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
     .alert {
       border-radius: 10px;
       padding: 12px 14px;
@@ -332,13 +380,22 @@
         window.rybbit?.track("registration", { class: payload.class });
 
         const emailVal = fd.get("email");
-        const emailNote = emailVal ? ` A confirmation email has been sent to ${escapeHtml(emailVal)}.` : "";
+        const emailNote = emailVal
+          ? `<p>A confirmation email has been sent to <strong>${escapeHtml(emailVal)}</strong>.</p>`
+          : "";
+        document.getElementById("f").style.display = "none";
+        document.querySelector(".info").style.display = "none";
         el.innerHTML = `
-          <div class="alert alert-success">
-            You are registered for the show. Your car number is <strong>#${data.reg_number}</strong>.${emailNote}
+          <div class="success-screen">
+            <h2>You're Registered!</h2>
+            <div class="reg-number">#${data.reg_number}</div>
+            <p>This is your car number. Write it down or take a screenshot.</p>
+            ${emailNote}
+            <p>See you at the show!</p>
+            <button class="register-another" onclick="location.reload()">Register Another Vehicle</button>
           </div>
         `;
-        e.target.reset();
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
       } finally {
         btn.disabled = false;
         btn.textContent = "Submit Registration";
