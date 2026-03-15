@@ -802,7 +802,8 @@ export default {
              COUNT(*) AS total,
              SUM(CASE WHEN checked_in_at IS NOT NULL THEN 1 ELSE 0 END) AS checked_in,
              SUM(CASE WHEN checked_in_at IS NULL THEN 1 ELSE 0 END) AS not_checked_in
-           FROM registrations`
+           FROM registrations
+           WHERE id NOT LIKE 'test-%'`
         ).first<{ total: number; checked_in: number | null; not_checked_in: number | null }>();
 
         return json(
@@ -976,6 +977,7 @@ export default {
           `SELECT reg_number, name, car_year, car_make, car_model, car_color, class
            FROM registrations
            WHERE checked_in_at IS NOT NULL
+             AND id NOT LIKE 'test-%'
              AND reg_number NOT IN (SELECT reg_number FROM prize_winners)
            ORDER BY RANDOM()
            LIMIT 1`
