@@ -342,6 +342,9 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
+    const toProperCase = (s) =>
+      s.trim().replace(/\b\w+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+
     const hasHomeChurchEl = document.getElementById("has_home_church");
     const homeChurchNameEl = document.getElementById("home_church_name");
 
@@ -365,6 +368,7 @@
       try {
         const fd = new FormData(e.target);
         const payload = Object.fromEntries(fd.entries());
+        if (payload.name) payload.name = toProperCase(payload.name);
 
         const res = await fetch(`${API_BASE}/api/register`, {
           method: "POST",
