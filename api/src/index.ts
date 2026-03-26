@@ -684,6 +684,8 @@ export default {
         if (tooLong(car_color, FIELD_MAX.carColor)) return bad("Car color is too long");
         if (home_church_name && tooLong(home_church_name, FIELD_MAX.homeChurchName)) return bad("Home church name is too long");
 
+        sentry?.setUser({ username: name, email: email || undefined });
+
         const { reg_number, id, created_at } = await createRegistrationWithRetry(
           env.DB,
           {
@@ -776,6 +778,8 @@ export default {
         if (tooLong(car_model, FIELD_MAX.carModel)) return bad("Car model is too long");
         if (tooLong(car_color, FIELD_MAX.carColor)) return bad("Car color is too long");
         if (home_church_name && tooLong(home_church_name, FIELD_MAX.homeChurchName)) return bad("Home church name is too long");
+
+        sentry?.setUser({ username: name, email: email || undefined });
 
         const { reg_number, id } = await createRegistrationWithRetry(
           env.DB,
