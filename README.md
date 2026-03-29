@@ -122,12 +122,20 @@ Then set `SENDER_GROUP_ID` in `wrangler.toml`.
 
 #### Creating an admin user
 
-Use the tool in `api/tools/make-user.mjs` to generate the SQL for a new admin user, then insert it into the database:
+Use the tool in `api/tools/make-user.mjs` to generate a hashed password and INSERT SQL, then run it against the database:
 
 ```bash
-node api/tools/make-user.mjs
-# follow the prompts, then run the output SQL with wrangler d1 execute
+cd api
+node tools/make-user.mjs <username> <password>
 ```
+
+Copy the `INSERT INTO users ...` line from the output, then execute it:
+
+```bash
+npx wrangler d1 execute carshow_db --remote --command="INSERT INTO users ..."
+```
+
+Running the script again for the same username will update the password (upsert).
 
 #### Test registrations
 
