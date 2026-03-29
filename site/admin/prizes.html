@@ -109,7 +109,7 @@
     const r = data.winner;
     w.innerHTML = `
       <div class="alert alert-success">
-        Winner for <strong>${escapeHtml(data.prize_name)}</strong>: <strong>#${asNumber(r.reg_number)}</strong> — ${escapeHtml(r.name)}
+        Winner for <strong>${escapeHtml(data.prize_name)}</strong>: <strong>#${asNumber(r.reg_number)}</strong> — ${escapeHtml(r.name)} <span class="text-muted fw-normal">(drawn from ${data.eligible_count} eligible entries)</span>
         <div class="text-muted">${escapeHtml(r.car_year)} ${escapeHtml(r.car_make)} ${escapeHtml(r.car_model)} (${escapeHtml(r.car_color)})</div>
       </div>
     `;

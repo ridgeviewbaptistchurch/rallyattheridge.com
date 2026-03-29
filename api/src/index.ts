@@ -1044,6 +1044,14 @@ export default {
         const prize_name = String(body.prize_name ?? "").trim();
         if (!prize_name) return bad("Prize name is required");
 
+        const eligibleCount = await env.DB.prepare(
+          `SELECT COUNT(*) AS cnt
+           FROM registrations
+           WHERE checked_in_at IS NOT NULL
+             AND id NOT LIKE 'test-%'
+             AND reg_number NOT IN (SELECT reg_number FROM prize_winners)`
+        ).first<{ cnt: number }>();
+
         const winner = await env.DB.prepare(
           `SELECT reg_number, name, car_year, car_make, car_model, car_color, class
            FROM registrations
@@ -1064,7 +1072,7 @@ export default {
           .bind(id, isoNow(), prize_name, winner.reg_number)
           .run();
 
-        return json({ ok: true, winner, prize_name }, { headers: corsHeaders });
+        return json({ ok: true, winner, prize_name, eligible_count: eligibleCount?.cnt ?? 0 }, { headers: corsHeaders });
       }
 
       // GET /api/prizes/winners
