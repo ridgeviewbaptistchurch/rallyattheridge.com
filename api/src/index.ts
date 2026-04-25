@@ -1109,7 +1109,7 @@ export default {
           const churchName = "Ridgeview Baptist Church";
           const churchIntro = "Thanks for coming out today. We would love to have you join us.";
           const churchTimes =
-            "Service Times: Sunday School 10:00 AM | Worship 11:00 AM | Sunday Evening 6:00 PM | Wednesday 7:00 PM";
+            "Service Times: Sunday 8:30 AM & 10:30 AM | Sunday School 9:30 AM | Wednesday Bible Study 6:30 PM";
           const churchWeb = "ridgeviewbaptist.org";
           const churchAddr = "234 Hurd Road, Church Hill, TN 37642";
           const churchPhone = "423-357-4631";
