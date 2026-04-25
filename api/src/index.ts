@@ -1183,7 +1183,11 @@ export default {
       });
 
       window.addEventListener("afterprint", function () {
-        window.location.href = backUrl;
+        if (window.opener) {
+          window.close();
+        } else {
+          window.location.href = backUrl;
+        }
       });
     })();
   </script>
