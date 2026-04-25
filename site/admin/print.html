@@ -15,6 +15,7 @@
   const API_BASE = "https://api.rallyattheridge.org";
   const params = new URLSearchParams(location.search);
   const car = params.get("car");
+  const close = params.get("close");
 
   if (!car) {
     document.body.innerHTML = "<p>No car number specified.</p>";
@@ -25,7 +26,8 @@
         location.href = `/admin/login.html?next=${next}`;
         return;
       }
-      location.href = `${API_BASE}/api/admin/print/${encodeURIComponent(car)}`;
+      const qs = close === "1" ? "?close=1" : "";
+      location.href = `${API_BASE}/api/admin/print/${encodeURIComponent(car)}${qs}`;
     });
   }
 </script>

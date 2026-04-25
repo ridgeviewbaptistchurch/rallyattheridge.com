@@ -93,7 +93,7 @@
       : "";
     const actions = isCheckedIn
       ? `
-          <a class="btn btn-outline-secondary" href="/admin/print.html?car=${asNumber(r.reg_number)}" target="_blank">Print Sheet</a>
+          <a class="btn btn-outline-secondary" href="/admin/print.html?car=${asNumber(r.reg_number)}&close=1" target="_blank">Print Sheet</a>
         `
       : `
           <button id="checkin" class="btn btn-success">Check In</button>

@@ -1094,6 +1094,7 @@ export default {
         const m = match(pathname, /^\/api\/admin\/print\/(\d+)$/);
         if (req.method === "GET" && m) {
           const reg = toInt(m[1]);
+          const closeAfterPrint = new URL(req.url).searchParams.get("close") === "1";
           const r = await env.DB.prepare(`SELECT * FROM registrations WHERE reg_number = ?`).bind(reg).first<any>();
           if (!r) return bad("Not found", 404);
 
@@ -1183,11 +1184,7 @@ export default {
       });
 
       window.addEventListener("afterprint", function () {
-        if (window.opener) {
-          window.close();
-        } else {
-          window.location.href = backUrl;
-        }
+        ${closeAfterPrint ? "window.close();" : "window.location.href = backUrl;"}
       });
     })();
   </script>
